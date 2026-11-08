@@ -6,8 +6,6 @@ Sections
 2. MCP tool input / output schemas  (RC-4)
 3. Agent output schemas             (RC-3: ``DiagnosisOutput`` / ``Evidence``)
 
-Section 3 is owned by RC-3 and is intentionally left for that issue so the two
-branches only touch separate regions of this file.
 """
 
 from __future__ import annotations
@@ -258,5 +256,73 @@ def load_golden_dataset(path: str | Path) -> list[GoldenDatasetEntry]:
 
 
 # ---------------------------------------------------------------------------
-# 3. Agent output schemas  (RC-3: DiagnosisOutput, Evidence)  -- not part of RC-4
+# 3. Agent output schemas
 # ---------------------------------------------------------------------------
+
+DIAGNOSED = "DIAGNOSED"
+ 
+
+class RAGCitation(_StrictModel):
+    rag_doc_id: str = Field(min_length=1)
+    section_anchor: str = Field(min_length=1)
+    quoted_snippet: str = Field(min_length=1)
+ 
+ 
+class ToolCitation(_StrictModel):
+    tool_name: str = Field(min_length=1)
+    tool_args: dict[str, Any]
+    output_summary: str = Field(min_length=1)
+ 
+ 
+class ClaimEvidence(_StrictModel):
+    """A single claim plus whatever grounds it.
+ 
+    At least one of ``rag_citations`` / ``tool_citations`` is required: a claim
+    with zero sources is exactly the kind of ungrounded statement this schema
+    exists to rule out.
+    """
+ 
+    claim: str = Field(min_length=1)
+    rag_citations: list[RAGCitation] = Field(default_factory=list)
+    tool_citations: list[ToolCitation] = Field(default_factory=list)
+ 
+    @model_validator(mode="after")
+    def _check_has_at_least_one_source(self) -> "ClaimEvidence":
+        if not self.rag_citations and not self.tool_citations:
+            raise ValueError(
+                "ClaimEvidence requires at least one rag_citation or "
+                "tool_citation to support its claim"
+            )
+        return self
+ 
+ 
+class DiagnosisOutput(_StrictModel):
+    """Final structured output of the diagnosis agent.
+ 
+    ``status == DIAGNOSED`` requires at least one grounded claim in
+    ``proposed_root_cause`` (each already enforced to carry its own citation
+    by ``ClaimEvidence``). ``status == INSUFFICIENT_EVIDENCE`` means the agent
+    abstained, and must not carry any proposed root cause claims.
+    """
+ 
+    status: Literal["DIAGNOSED", "INSUFFICIENT_EVIDENCE"]
+    proposed_root_cause: list[ClaimEvidence]
+    confidence_note: str = Field(min_length=1)
+    remediation_steps: list[str]
+ 
+    @model_validator(mode="after")
+    def _check_status_consistency(self) -> "DiagnosisOutput":
+        if self.status == DIAGNOSED:
+            if not self.proposed_root_cause:
+                raise ValueError(
+                    f"status {DIAGNOSED!r} requires at least one "
+                    "ClaimEvidence in proposed_root_cause"
+                )
+        else:
+            if self.proposed_root_cause:
+                raise ValueError(
+                    f"status {INSUFFICIENT_EVIDENCE!r} must have an empty "
+                    "proposed_root_cause"
+                )
+        return self
+ 
