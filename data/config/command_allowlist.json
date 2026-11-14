@@ -1,0 +1,46 @@
+{
+  "policy": {
+    "default": "deny",
+    "evaluation_order": [
+      "blocked_patterns",
+      "allowed_prefixes"
+    ],
+    "case_sensitive": false,
+    "description": "A command is blocked if any blocked pattern matches anywhere in it. Otherwise it is allowed only if it starts with an allowed prefix. Everything else is denied."
+  },
+  "allowed_prefixes": [
+    "SELECT ",
+    "EXPLAIN ",
+    "SHOW ",
+    "kubectl get ",
+    "kubectl describe ",
+    "kubectl logs ",
+    "kubectl top ",
+    "kubectl rollout status ",
+    "kubectl rollout restart ",
+    "kubectl scale ",
+    "redis-cli INFO",
+    "redis-cli SLOWLOG GET",
+    "redis-cli CLIENT LIST",
+    "curl -s ",
+    "grpcurl ",
+    "kubectl rollout undo ",
+    "redis-cli --bigkeys",
+    "kafka-consumer-groups --describe ",
+    "openssl s_client "
+  ],
+  "blocked_patterns": [
+    { "pattern": "\\brm\\s+-[a-z]*(r[a-z]*f|f[a-z]*r)", "description": "Recursive force delete (rm -rf / rm -fr)" },
+    { "pattern": "\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b", "description": "Drops a table, database, or schema" },
+    { "pattern": "\\bTRUNCATE\\b", "description": "Deletes all rows of a table" },
+    { "pattern": "\\bDELETE\\s+FROM\\s+\\S+\\s*(;|$)", "description": "DELETE without a WHERE clause" },
+    { "pattern": "\\bkubectl\\s+delete\\s+(namespace|ns)\\b", "description": "Deletes a Kubernetes namespace" },
+    { "pattern": "\\bFLUSHALL\\b", "description": "Wipes all Redis databases" },
+    { "pattern": "\\bFLUSHDB\\b", "description": "Wipes the current Redis database" },
+    { "pattern": "\\bmkfs(\\.\\w+)?\\b", "description": "Formats a filesystem" },
+    { "pattern": "\\bdd\\s+if=", "description": "Raw disk write" },
+    { "pattern": "\\bkubectl\\s+scale\\b.*--replicas[=\\s]+0\\b", "description": "Scales a workload down to zero replicas" },
+    { "pattern": "\\bcurl\\b.*\\s(-X\\s*|--request\\s+)(DELETE|PUT|POST|PATCH)\\b", "description": "curl request that modifies or deletes data" },
+    { "pattern": "\\bcurl\\b.*\\s(-d|--data(-\\w+)?|-F|--form|-T|--upload-file)(\\s|=|$)", "description": "curl request that sends data" }
+  ]
+}
