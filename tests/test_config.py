@@ -165,6 +165,11 @@ def test_allowlist_shape():
         "SELECT 1; DROP TABLE orders",
         "mkfs.ext4 /dev/sda1",
         "dd if=/dev/zero of=/dev/sda",
+        "kubectl scale deployment order-worker -n checkout --replicas=0",
+        "kubectl scale deploy/payment-gateway --replicas 0",
+        "curl -s -X DELETE https://order-service.checkout.svc/orders/42",
+        "curl -s --request POST https://auth-service.identity.svc/admin/keys",
+        "curl -s -d '{\"enabled\": false}' https://api.internal/flags/checkout",
     ],
 )
 def test_destructive_commands_blocked(command):
@@ -179,6 +184,9 @@ def test_destructive_commands_blocked(command):
         "kubectl logs deploy/order-worker --tail=200",
         "kubectl rollout restart deployment/order-worker",
         "redis-cli INFO memory",
+        "kubectl scale deployment coredns -n kube-system --replicas=6",
+        "kubectl scale deployment fraud-detection-service -n risk --replicas=10",
+        "curl -s https://auth-service.identity.svc/.well-known/jwks.json",
     ],
 )
 def test_safe_commands_allowed(command):
