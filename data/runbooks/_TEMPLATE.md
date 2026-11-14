@@ -15,7 +15,7 @@ RUNBOOK & POST-MORTEM CONVENTIONS
 1. FILE NAMES AND DOC IDS
    - Runbook:     RUNBOOK-<DOMAIN>-<NN>.md   e.g. RUNBOOK-PG-01.md
    - Post-mortem: PM-2026-<NN>.md            e.g. PM-2026-04.md
-   - <DOMAIN>: uppercase area code: PG, REDIS, KAFKA, GRPC, HTTP, K8S, AUTH
+   - <DOMAIN>: uppercase area code: PG, CACHE, KAFKA, INFRA, API
      (a new code may be added in the PR that first uses it).
    - <NN>: two digits, zero-padded; sequential per domain for runbooks,
      sequential overall for post-mortems. Numbers are never reused.
