@@ -38,6 +38,9 @@
     { "pattern": "\\bFLUSHALL\\b", "description": "Wipes all Redis databases" },
     { "pattern": "\\bFLUSHDB\\b", "description": "Wipes the current Redis database" },
     { "pattern": "\\bmkfs(\\.\\w+)?\\b", "description": "Formats a filesystem" },
-    { "pattern": "\\bdd\\s+if=", "description": "Raw disk write" }
+    { "pattern": "\\bdd\\s+if=", "description": "Raw disk write" },
+    { "pattern": "\\bkubectl\\s+scale\\b.*--replicas[=\\s]+0\\b", "description": "Scales a workload down to zero replicas" },
+    { "pattern": "\\bcurl\\b.*\\s(-X\\s*|--request\\s+)(DELETE|PUT|POST|PATCH)\\b", "description": "curl request that modifies or deletes data" },
+    { "pattern": "\\bcurl\\b.*\\s(-d|--data(-\\w+)?|-F|--form|-T|--upload-file)(\\s|=|$)", "description": "curl request that sends data" }
   ]
 }
