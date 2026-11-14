@@ -8,7 +8,7 @@ from src.schemas import (
     INSUFFICIENT_EVIDENCE,
     TOOL_INPUT_MODELS,
     CommandValidation,
-    ErrorCodeLookup, 
+    ErrorCodeLookup,
     EvidenceMapItem,
     ExpectedToolCall,
     GoldenDatasetEntry,
@@ -32,7 +32,7 @@ def in_scope_entry(**overrides) -> dict:
         "id": "INC-001",
         "split": "adaptation",
         "user_input": "FATAL: remaining connection slots are reserved (SQLSTATE 53300) "
-        "at OrderService.db.connect()",
+                      "at OrderService.db.connect()",
         "in_scope": True,
         "expected_retrieved_docs": ["RUNBOOK-PG-01"],
         "expected_tool_calls": [
@@ -55,7 +55,7 @@ def in_scope_entry(**overrides) -> dict:
             {
                 "claim": "Unclosed async sessions leak connections",
                 "source_type": "RAG",
-                "source_ref": "RUNBOOK-PG-01#Connection-Leak",
+                "source_ref": "RUNBOOK-PG-01#connection-leak-in-order-worker",
             },
         ],
         "ground_truth_remediation": ["Close sessions in the order worker"],
@@ -227,7 +227,7 @@ def test_tool_input_models_cover_all_tools():
 @pytest.mark.parametrize(
     "source_type, source_ref",
     [
-        ("RAG", "RUNBOOK-PG-01#Connection-Leak"),
+        ("RAG", "RUNBOOK-PG-01#connection-leak-in-order-worker"),
         ("RAG", "PM-2026-04.md#Root-Cause"),
         ("MCP", "lookup_error_code -> SQLSTATE 53300"),
         ("MCP", "check_service_dependencies"),
@@ -388,8 +388,8 @@ def test_rag_citation_valid():
         quoted_snippet="Unclosed async sessions leak connections to the pool.",
     )
     assert cite.rag_doc_id == "RUNBOOK-PG-01"
- 
- 
+
+
 @pytest.mark.parametrize("field", ["rag_doc_id", "section_anchor", "quoted_snippet"])
 def test_rag_citation_rejects_empty_fields(field):
     data = {
@@ -400,8 +400,8 @@ def test_rag_citation_rejects_empty_fields(field):
     }
     with pytest.raises(ValidationError):
         RAGCitation(**data)
- 
- 
+
+
 def test_rag_citation_rejects_unknown_field():
     with pytest.raises(ValidationError):
         RAGCitation(
@@ -410,8 +410,8 @@ def test_rag_citation_rejects_unknown_field():
             quoted_snippet="text",
             confidence=0.9,
         )
- 
- 
+
+
 def test_tool_citation_valid():
     cite = ToolCitation(
         tool_name="lookup_error_code",
@@ -419,8 +419,8 @@ def test_tool_citation_valid():
         output_summary="SQLSTATE 53300: connection pool exhausted (limit 100).",
     )
     assert cite.tool_args["code"] == "53300"
- 
- 
+
+
 @pytest.mark.parametrize("field", ["tool_name", "output_summary"])
 def test_tool_citation_rejects_empty_text_fields(field):
     data = {
@@ -431,8 +431,8 @@ def test_tool_citation_rejects_empty_text_fields(field):
     }
     with pytest.raises(ValidationError):
         ToolCitation(**data)
- 
- 
+
+
 def test_tool_citation_allows_empty_args_dict():
     cite = ToolCitation(
         tool_name="check_service_dependencies",
@@ -440,8 +440,8 @@ def test_tool_citation_allows_empty_args_dict():
         output_summary="No dependencies found.",
     )
     assert cite.tool_args == {}
- 
- 
+
+
 # --------------------------------------------------------------------------
 # ClaimEvidence
 # --------------------------------------------------------------------------
@@ -453,8 +453,8 @@ def _rag_citation(**overrides) -> dict:
     }
     data.update(overrides)
     return data
- 
- 
+
+
 def _tool_citation(**overrides) -> dict:
     data = {
         "tool_name": "lookup_error_code",
@@ -463,8 +463,8 @@ def _tool_citation(**overrides) -> dict:
     }
     data.update(overrides)
     return data
- 
- 
+
+
 def test_claim_evidence_valid_with_rag_only():
     claim = ClaimEvidence(
         claim="Unclosed async sessions leak connections",
@@ -473,8 +473,8 @@ def test_claim_evidence_valid_with_rag_only():
     )
     assert len(claim.rag_citations) == 1
     assert claim.tool_citations == []
- 
- 
+
+
 def test_claim_evidence_valid_with_tool_only():
     claim = ClaimEvidence(
         claim="Pool limit of 100 is exhausted",
@@ -482,8 +482,8 @@ def test_claim_evidence_valid_with_tool_only():
         tool_citations=[_tool_citation()],
     )
     assert len(claim.tool_citations) == 1
- 
- 
+
+
 def test_claim_evidence_valid_with_both():
     claim = ClaimEvidence(
         claim="Pool limit of 100 is exhausted",
@@ -491,25 +491,25 @@ def test_claim_evidence_valid_with_both():
         tool_citations=[_tool_citation()],
     )
     assert claim.rag_citations and claim.tool_citations
- 
- 
+
+
 def test_claim_evidence_defaults_to_empty_lists():
     # Explicitly confirms the "no source at all" case is rejected even when
     # both fields are left to their defaults rather than passed as [].
     with pytest.raises(ValidationError, match="at least one"):
         ClaimEvidence(claim="Unsupported claim")
- 
- 
+
+
 def test_claim_evidence_rejects_no_citations_at_all():
     with pytest.raises(ValidationError, match="at least one"):
         ClaimEvidence(claim="Unsupported claim", rag_citations=[], tool_citations=[])
- 
- 
+
+
 def test_claim_evidence_rejects_empty_claim():
     with pytest.raises(ValidationError):
         ClaimEvidence(claim="", rag_citations=[_rag_citation()])
- 
- 
+
+
 # --------------------------------------------------------------------------
 # DiagnosisOutput
 # --------------------------------------------------------------------------
@@ -529,13 +529,13 @@ def diagnosed_output(**overrides) -> dict:
             },
         ],
         "confidence_note": "High confidence: both the registry lookup and the "
-        "runbook agree on the root cause.",
+                           "runbook agree on the root cause.",
         "remediation_steps": ["Close sessions in the order worker"],
     }
     data.update(overrides)
     return data
- 
- 
+
+
 def insufficient_evidence_output(**overrides) -> dict:
     data = {
         "status": INSUFFICIENT_EVIDENCE,
@@ -545,30 +545,30 @@ def insufficient_evidence_output(**overrides) -> dict:
     }
     data.update(overrides)
     return data
- 
- 
+
+
 def test_diagnosed_output_valid():
     output = DiagnosisOutput(**diagnosed_output())
     assert output.status == DIAGNOSED
     assert len(output.proposed_root_cause) == 2
- 
- 
+
+
 def test_insufficient_evidence_output_valid():
     output = DiagnosisOutput(**insufficient_evidence_output())
     assert output.status == INSUFFICIENT_EVIDENCE
     assert output.proposed_root_cause == []
- 
- 
+
+
 def test_diagnosis_output_round_trip_through_json():
     output = DiagnosisOutput(**diagnosed_output())
     assert DiagnosisOutput.model_validate_json(output.model_dump_json()) == output
- 
- 
+
+
 def test_diagnosed_output_requires_nonempty_root_cause():
     with pytest.raises(ValidationError, match="requires at least one"):
         DiagnosisOutput(**diagnosed_output(proposed_root_cause=[]))
- 
- 
+
+
 def test_diagnosed_output_claim_missing_rag_and_tool_citations_rejected():
     """A DIAGNOSED claim with zero citations of either kind must fail."""
     bad_claim = {
@@ -578,8 +578,8 @@ def test_diagnosed_output_claim_missing_rag_and_tool_citations_rejected():
     }
     with pytest.raises(ValidationError, match="at least one"):
         DiagnosisOutput(**diagnosed_output(proposed_root_cause=[bad_claim]))
- 
- 
+
+
 def test_diagnosed_output_claim_missing_rag_citations_only_is_fine():
     # A claim backed solely by a tool citation is still valid.
     output = DiagnosisOutput(
@@ -594,8 +594,8 @@ def test_diagnosed_output_claim_missing_rag_citations_only_is_fine():
         )
     )
     assert output.proposed_root_cause[0].rag_citations == []
- 
- 
+
+
 def test_diagnosed_output_claim_missing_tool_citations_only_is_fine():
     # A claim backed solely by a RAG citation is still valid.
     output = DiagnosisOutput(
@@ -610,8 +610,8 @@ def test_diagnosed_output_claim_missing_tool_citations_only_is_fine():
         )
     )
     assert output.proposed_root_cause[0].tool_citations == []
- 
- 
+
+
 def test_insufficient_evidence_output_cannot_have_root_cause():
     with pytest.raises(ValidationError, match="must have an empty"):
         DiagnosisOutput(
@@ -625,19 +625,18 @@ def test_insufficient_evidence_output_cannot_have_root_cause():
                 ]
             )
         )
- 
- 
+
+
 def test_diagnosis_output_rejects_invalid_status():
     with pytest.raises(ValidationError):
         DiagnosisOutput(**diagnosed_output(status="MAYBE"))
- 
- 
+
+
 def test_diagnosis_output_rejects_unknown_field():
     with pytest.raises(ValidationError):
         DiagnosisOutput(**diagnosed_output(agent_version="v1"))
- 
- 
+
+
 def test_diagnosis_output_rejects_empty_confidence_note():
     with pytest.raises(ValidationError):
         DiagnosisOutput(**diagnosed_output(confidence_note=""))
- 

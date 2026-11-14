@@ -1,0 +1,145 @@
+{
+  "OrderService": {
+    "53300": {
+      "category": "Database Capacity",
+      "severity": "SEV-2",
+      "owning_team": "Checkout-DB-Team",
+      "configured_limits": {
+        "max_connections_limit": 100,
+        "superuser_reserved_connections": 3
+      }
+    },
+    "40P01": {
+      "category": "Database Concurrency",
+      "severity": "SEV-3",
+      "owning_team": "Checkout-DB-Team",
+      "configured_limits": {
+        "deadlock_timeout_ms": 1000
+      }
+    }
+  },
+  "CatalogService": {
+    "57014": {
+      "category": "Database Query Timeout",
+      "severity": "SEV-3",
+      "owning_team": "Catalog-Team",
+      "configured_limits": {
+        "statement_timeout_ms": 30000
+      }
+    },
+    "REDIS_TIMEOUT": {
+      "category": "Cache Latency",
+      "severity": "SEV-3",
+      "owning_team": "Catalog-Team",
+      "configured_limits": {
+        "socket_timeout_ms": 200,
+        "cache_ttl_seconds": 300
+      }
+    }
+  },
+  "CartService": {
+    "OOM": {
+      "category": "Cache Capacity",
+      "severity": "SEV-2",
+      "owning_team": "Cart-Team",
+      "configured_limits": {
+        "maxmemory_mb": 2048,
+        "maxmemory_policy": "noeviction"
+      }
+    }
+  },
+  "NotificationService": {
+    "CommitFailedException": {
+      "category": "Consumer Group Instability",
+      "severity": "SEV-3",
+      "owning_team": "Messaging-Team",
+      "configured_limits": {
+        "max_poll_records": 500,
+        "max_poll_interval_ms": 300000
+      }
+    }
+  },
+  "ShippingService": {
+    "RecordDeserializationException": {
+      "category": "Message Schema Error",
+      "severity": "SEV-2",
+      "owning_team": "Fulfillment-Team",
+      "configured_limits": {
+        "partitions": 12,
+        "dlq_topic": "order-events.dlq"
+      }
+    }
+  },
+  "RecommendationService": {
+    "OOMKilled": {
+      "category": "Container Memory",
+      "severity": "SEV-3",
+      "owning_team": "Recommendations-Team",
+      "configured_limits": {
+        "memory_limit_mi": 1024,
+        "jvm_max_heap_mb": 1024
+      }
+    }
+  },
+  "InventoryService": {
+    "CrashLoopBackOff": {
+      "category": "Container Startup",
+      "severity": "SEV-2",
+      "owning_team": "Inventory-Team",
+      "configured_limits": {
+        "liveness_initial_delay_seconds": 10,
+        "liveness_period_seconds": 5,
+        "liveness_failure_threshold": 3
+      }
+    }
+  },
+  "ImageService": {
+    "Evicted": {
+      "category": "Node Resource Pressure",
+      "severity": "SEV-3",
+      "owning_team": "Media-Team",
+      "configured_limits": {
+        "eviction_hard_nodefs_available": "10%"
+      }
+    }
+  },
+  "APIGateway": {
+    "EAI_AGAIN": {
+      "category": "DNS Resolution",
+      "severity": "SEV-2",
+      "owning_team": "Platform-Team",
+      "configured_limits": {
+        "coredns_replicas": 2,
+        "ndots": 5
+      }
+    },
+    "HTTP 401": {
+      "category": "Authentication Failure",
+      "severity": "SEV-2",
+      "owning_team": "Platform-Team",
+      "configured_limits": {
+        "jwks_cache_ttl_seconds": 86400,
+        "access_token_ttl_seconds": 3600
+      }
+    },
+    "HTTP 502": {
+      "category": "Upstream TLS Failure",
+      "severity": "SEV-1",
+      "owning_team": "Platform-Team",
+      "configured_limits": {
+        "upstream_port": 8443
+      }
+    }
+  },
+  "PaymentGateway": {
+    "DEADLINE_EXCEEDED": {
+      "category": "Upstream Timeout",
+      "severity": "SEV-1",
+      "owning_team": "Payments-Team",
+      "configured_limits": {
+        "grpc_deadline_ms": 2000,
+        "max_retries": 3
+      }
+    }
+  }
+}

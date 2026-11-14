@@ -1,0 +1,128 @@
+{
+  "APIGateway": {
+    "owning_team": "Platform-Team",
+    "dependencies": [
+      { "service": "AuthService", "call_type": "sync", "caller_timeout_ms": 3000 },
+      { "service": "OrderService", "call_type": "sync", "caller_timeout_ms": 5000 },
+      { "service": "CatalogService", "call_type": "sync", "caller_timeout_ms": 3000 },
+      { "service": "CartService", "call_type": "sync", "caller_timeout_ms": 2000 },
+      { "service": "RecommendationService", "call_type": "sync", "caller_timeout_ms": 1000 },
+      { "service": "ImageService", "call_type": "sync", "caller_timeout_ms": 10000 },
+      { "service": "CoreDNS", "call_type": "sync", "caller_timeout_ms": 5000 }
+    ]
+  },
+  "AuthService": {
+    "owning_team": "Identity-Team",
+    "dependencies": [
+      { "service": "UserDB", "call_type": "sync", "caller_timeout_ms": 1000 }
+    ]
+  },
+  "OrderService": {
+    "owning_team": "Checkout-Team",
+    "dependencies": [
+      { "service": "OrdersDB", "call_type": "sync", "caller_timeout_ms": 5000 },
+      { "service": "OrdersDBReplica", "call_type": "sync", "caller_timeout_ms": 5000 },
+      { "service": "PaymentGateway", "call_type": "sync", "caller_timeout_ms": 4000 },
+      { "service": "InventoryService", "call_type": "sync", "caller_timeout_ms": 2000 },
+      { "service": "Kafka", "call_type": "async", "caller_timeout_ms": null }
+    ]
+  },
+  "PaymentGateway": {
+    "owning_team": "Payments-Team",
+    "dependencies": [
+      { "service": "FraudDetectionService", "call_type": "sync", "caller_timeout_ms": 2000 },
+      { "service": "LedgerDB", "call_type": "async", "caller_timeout_ms": null }
+    ]
+  },
+  "InventoryService": {
+    "owning_team": "Inventory-Team",
+    "dependencies": [
+      { "service": "InventoryDB", "call_type": "sync", "caller_timeout_ms": 2000 }
+    ]
+  },
+  "CatalogService": {
+    "owning_team": "Catalog-Team",
+    "dependencies": [
+      { "service": "CatalogDB", "call_type": "sync", "caller_timeout_ms": 30000 },
+      { "service": "CatalogCache", "call_type": "sync", "caller_timeout_ms": 200 }
+    ]
+  },
+  "CartService": {
+    "owning_team": "Cart-Team",
+    "dependencies": [
+      { "service": "CartCache", "call_type": "sync", "caller_timeout_ms": 200 }
+    ]
+  },
+  "NotificationService": {
+    "owning_team": "Messaging-Team",
+    "dependencies": [
+      { "service": "Kafka", "call_type": "async", "caller_timeout_ms": null }
+    ]
+  },
+  "ShippingService": {
+    "owning_team": "Fulfillment-Team",
+    "dependencies": [
+      { "service": "Kafka", "call_type": "async", "caller_timeout_ms": null }
+    ]
+  },
+  "RecommendationService": {
+    "owning_team": "Recommendations-Team",
+    "dependencies": [
+      { "service": "CatalogService", "call_type": "sync", "caller_timeout_ms": 500 }
+    ]
+  },
+  "ImageService": {
+    "owning_team": "Media-Team",
+    "dependencies": [
+      { "service": "ObjectStorage", "call_type": "sync", "caller_timeout_ms": 10000 }
+    ]
+  },
+  "FraudDetectionService": {
+    "owning_team": "Risk-Team",
+    "dependencies": []
+  },
+  "LedgerDB": {
+    "owning_team": "Payments-Team",
+    "dependencies": []
+  },
+  "OrdersDB": {
+    "owning_team": "Checkout-DB-Team",
+    "dependencies": []
+  },
+  "OrdersDBReplica": {
+    "owning_team": "Checkout-DB-Team",
+    "dependencies": []
+  },
+  "InventoryDB": {
+    "owning_team": "Inventory-Team",
+    "dependencies": []
+  },
+  "CatalogDB": {
+    "owning_team": "Catalog-Team",
+    "dependencies": []
+  },
+  "CatalogCache": {
+    "owning_team": "Catalog-Team",
+    "dependencies": []
+  },
+  "CartCache": {
+    "owning_team": "Cart-Team",
+    "dependencies": []
+  },
+  "Kafka": {
+    "owning_team": "Platform-Team",
+    "dependencies": []
+  },
+  "ObjectStorage": {
+    "owning_team": "Platform-Team",
+    "dependencies": []
+  },
+  "CoreDNS": {
+    "owning_team": "Platform-Team",
+    "dependencies": []
+  },
+  "UserDB": {
+    "owning_team": "Identity-Team",
+    "dependencies": []
+  }
+}
