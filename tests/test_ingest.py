@@ -1,4 +1,6 @@
-﻿from pathlib import Path
+﻿import logging
+from pathlib import Path
+import numpy as np
 import pytest
 
 from src.ingest import (
@@ -9,7 +11,13 @@ from src.ingest import (
     compute_sha256,
     normalize_section_anchor,
     scan_and_chunk_incremental,
+    embed_texts,
+    build_arg_parser, 
+    run_cli, 
+    IngestResult
 )
+
+import src.ingest as ingest_module
 
 SAMPLE_RUNBOOK = """# RUNBOOK-PG-01: PostgreSQL Connection Pool Exhaustion
 
@@ -122,3 +130,108 @@ def test_invalid_chunk_mode_raises(tmp_path: Path):
     sample_file.write_text(SAMPLE_RUNBOOK, encoding="utf-8")
     with pytest.raises(ValueError, match="Unsupported chunk_mode"):
         chunk_file(sample_file, chunk_mode="invalid")  # type: ignore[arg-type]
+
+class FakeEmbedder:
+    """Deterministic fake standing in for SentenceTransformer -- avoids
+    downloading the real BGE model in these unit tests."""
+
+    def __init__(self):
+        self.encode_calls: list[list[str]] = []
+
+    def encode(self, texts, normalize_embeddings=True, show_progress_bar=False):
+        self.encode_calls.append(list(texts))
+        return np.array([[float(len(t) % 7), 0.0, 1.0] for t in texts])
+
+
+@pytest.fixture(autouse=True)
+def _reset_embedder_cache(monkeypatch):
+    """Ensure no test leaks a cached _embedder into another test, and that
+    nothing here can accidentally trigger a real model download."""
+    monkeypatch.setattr(ingest_module, "_embedder", None, raising=False)
+    yield
+    monkeypatch.setattr(ingest_module, "_embedder", None, raising=False)
+
+
+@pytest.fixture
+def fake_embedder(monkeypatch) -> FakeEmbedder:
+    fake = FakeEmbedder()
+    monkeypatch.setattr(ingest_module, "get_embedder", lambda: fake)
+    return fake
+
+
+def test_embed_texts_empty_list_returns_empty(fake_embedder):
+    assert embed_texts([]) == []
+    assert fake_embedder.encode_calls == []
+
+
+def test_embed_texts_calls_embedder_and_returns_vectors(fake_embedder):
+    vectors = embed_texts(["hello world", "second chunk"])
+    assert len(vectors) == 2
+    assert fake_embedder.encode_calls == [["hello world", "second chunk"]]
+
+
+def test_embed_texts_preserves_input_order(fake_embedder):
+    texts = ["a", "bb", "ccc"]
+    embed_texts(texts)
+    assert fake_embedder.encode_calls[0] == texts
+
+
+def test_build_arg_parser_requires_dir_and_mode():
+    parser = build_arg_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args([])  # missing --dir and --mode
+
+
+def test_build_arg_parser_rejects_invalid_mode():
+    parser = build_arg_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--dir", "data/runbooks", "--mode", "invalid"])
+
+
+def test_build_arg_parser_accepts_valid_args():
+    parser = build_arg_parser()
+    args = parser.parse_args(["--dir", "data/runbooks", "--mode", "both"])
+    assert args.dir == "data/runbooks"
+    assert args.mode == "both"
+    assert args.manifest_db == "ingestion_manifest.db"
+    assert args.chroma_dir == ingest_module.CHROMA_PERSIST_DIR
+
+
+def test_run_cli_maps_mode_to_chunk_modes_and_logs_summary(monkeypatch, caplog):
+    captured_kwargs = {}
+
+    def fake_ingest(**kwargs):
+        captured_kwargs.update(kwargs)
+        return [
+            IngestResult(doc_id="RUNBOOK-A", status="new", chunk_counts={"header": 3, "naive": 5}),
+            IngestResult(doc_id="RUNBOOK-B", status="updated", chunk_counts={"header": 2, "naive": 4}),
+            IngestResult(doc_id="RUNBOOK-C", status="skipped"),
+        ]
+
+    monkeypatch.setattr(ingest_module, "ingest_runbooks_to_chroma", fake_ingest)
+
+    with caplog.at_level(logging.INFO, logger="src.ingest"):
+        exit_code = run_cli(["--dir", "data/runbooks", "--mode", "both"])
+
+    assert exit_code == 0
+    assert captured_kwargs["modes"] == ("header", "naive")
+    assert captured_kwargs["runbooks_dir"] == "data/runbooks"
+
+    log_text = caplog.text
+    assert "NEW:     RUNBOOK-A" in log_text
+    assert "UPDATED: RUNBOOK-B" in log_text
+    assert "SKIPPED: RUNBOOK-C" in log_text
+    assert "new=1 updated=1 skipped=1 total_chunks_indexed=14" in log_text
+
+
+def test_run_cli_single_mode_maps_correctly(monkeypatch):
+    captured_kwargs = {}
+
+    def fake_ingest(**kwargs):
+        captured_kwargs.update(kwargs)
+        return []
+
+    monkeypatch.setattr(ingest_module, "ingest_runbooks_to_chroma", fake_ingest)
+    run_cli(["--dir", "data/runbooks", "--mode", "naive"])
+
+    assert captured_kwargs["modes"] == ("naive",)

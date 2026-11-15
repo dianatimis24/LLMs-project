@@ -1,15 +1,21 @@
-﻿import hashlib
+﻿import argparse
+import hashlib
+import logging
 import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Any, Literal
 
 from langchain_text_splitters import (
     MarkdownHeaderTextSplitter,
     RecursiveCharacterTextSplitter,
 )
+
+import chromadb
+from sentence_transformers import SentenceTransformer
 
 ChunkMode = Literal["header", "naive"]
 
@@ -287,3 +293,267 @@ def scan_and_chunk_incremental(
                 sha256_hash=file_hash,
             )
     return results
+
+# ---------------------------------------------------------------------------
+# Embedding model + persistent ChromaDB wiring
+# ---------------------------------------------------------------------------
+
+EMBEDDING_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+EMBEDDING_DIM = 384
+CHROMA_PERSIST_DIR = "chroma_db"
+
+COLLECTION_NAMES: dict[ChunkMode, str] = {
+    "header": "runbooks_header",
+    "naive": "runbooks_naive",
+}
+
+_embedder: SentenceTransformer | None = None
+_chroma_client: chromadb.ClientAPI | None = None
+
+
+def get_embedder() -> SentenceTransformer:
+    """Lazily load and cache the BGE-small embedding model."""
+    global _embedder
+    if _embedder is None:
+        _embedder = SentenceTransformer(EMBEDDING_MODEL_NAME)
+    return _embedder
+
+
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    """
+    Embed chunk text with bge-small-en-v1.5.
+    No query instruction prefix here: BGE only needs the
+    "Represent this sentence for searching relevant passages:" prefix on the
+    *query* side at retrieval time, not on indexed passages.
+    """
+    if not texts:
+        return []
+    vectors = get_embedder().encode(
+        texts,
+        normalize_embeddings=True,
+        show_progress_bar=False,
+    )
+    return vectors.tolist()
+
+
+def get_chroma_client(persist_directory: Path | str = CHROMA_PERSIST_DIR) -> chromadb.ClientAPI:
+    """Lazily create and cache the persistent ChromaDB client."""
+    global _chroma_client
+    if _chroma_client is None:
+        _chroma_client = chromadb.PersistentClient(path=str(persist_directory))
+    return _chroma_client
+
+
+def get_collection(chunk_mode: ChunkMode, client: chromadb.ClientAPI | None = None):
+    """Get (or create) the ChromaDB collection for a given chunking strategy."""
+    client = client or get_chroma_client()
+    return client.get_or_create_collection(
+        name=COLLECTION_NAMES[chunk_mode],
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
+def delete_doc_chunks(collection, doc_id: str) -> None:
+    """Delete all existing chunks for doc_id from a collection (no-op if none exist)."""
+    try:
+        collection.delete(where={"doc_id": doc_id})
+    except Exception:
+        pass
+
+
+def upsert_chunks(collection, chunks: list[DocumentChunk]) -> int:
+    """Embed and upsert a batch of chunks into a ChromaDB collection. Returns count upserted."""
+    if not chunks:
+        return 0
+    ids = [c.chunk_id for c in chunks]
+    texts = [c.text for c in chunks]
+    metadatas = [c.metadata for c in chunks]
+    embeddings = embed_texts(texts)
+    collection.upsert(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
+    return len(chunks)
+
+
+@dataclass
+class IngestResult:
+    """Outcome for a single runbook file, used by the CLI layer for logging."""
+    doc_id: str
+    status: Literal["new", "updated", "skipped"]
+    chunk_counts: dict[ChunkMode, int] = field(default_factory=dict)
+
+
+def ingest_runbooks_to_chroma(
+    runbooks_dir: Path | str = "data/runbooks",
+    manifest_db_path: Path | str = "ingestion_manifest.db",
+    chroma_persist_dir: Path | str = CHROMA_PERSIST_DIR,
+    modes: tuple[ChunkMode, ...] = ("header", "naive"),
+) -> list[IngestResult]:
+    """
+    Full incremental ingestion pipeline.
+
+    For each new/modified .md file under runbooks_dir: chunk it under every
+    requested mode, embed the chunks with bge-small-en-v1.5, delete any stale
+    chunks for that doc_id from the corresponding ChromaDB collection, upsert
+    the fresh ones, and record the new SHA-256 hash in the SQLite manifest
+    exactly once per file (not once per mode -- avoids the hash being marked
+    "seen" after the first mode and skipping the second).
+
+    On a run where nothing has changed, this never touches ChromaDB or the
+    embedding model: only file hashing + SQLite lookups run, so repeat runs
+    stay fast.
+    """
+    manifest = IngestionManifest(db_path=manifest_db_path)
+    directory = Path(runbooks_dir)
+    results: list[IngestResult] = []
+    if not directory.exists():
+        return results
+
+    client: chromadb.ClientAPI | None = None
+    collections: dict[ChunkMode, Any] = {}
+
+    def _collection_for(mode: ChunkMode):
+        nonlocal client
+        if client is None:
+            client = get_chroma_client(chroma_persist_dir)
+        if mode not in collections:
+            collections[mode] = get_collection(mode, client=client)
+        return collections[mode]
+
+    for md_file in sorted(directory.glob("*.md")):
+        if md_file.name.startswith("_"):
+            continue
+
+        doc_id = md_file.stem
+
+        if not manifest.needs_ingestion(md_file):
+            results.append(IngestResult(doc_id=doc_id, status="skipped"))
+            continue
+
+        is_new = manifest.get_stored_hash(doc_id) is None
+        file_hash = compute_sha256(md_file)
+
+        chunk_counts: dict[ChunkMode, int] = {}
+        for mode in modes:
+            chunks = chunk_file(md_file, chunk_mode=mode)
+            collection = _collection_for(mode)
+            delete_doc_chunks(collection, doc_id)
+            chunk_counts[mode] = upsert_chunks(collection, chunks)
+
+        manifest.mark_ingested(
+            file_path=md_file,
+            chunk_count=sum(chunk_counts.values()),
+            sha256_hash=file_hash,
+        )
+        results.append(
+            IngestResult(
+                doc_id=doc_id,
+                status="new" if is_new else "updated",
+                chunk_counts=chunk_counts,
+            )
+        )
+
+    return results
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+logger = logging.getLogger("src.ingest")
+
+CLIMode = Literal["header", "naive", "both"]
+
+_MODE_TO_CHUNK_MODES: dict[CLIMode, tuple[ChunkMode, ...]] = {
+    "header": ("header",),
+    "naive": ("naive",),
+    "both": ("header", "naive"),
+}
+
+
+def _configure_logging(verbose: bool = False) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m src.ingest",
+        description=(
+            "Incrementally embed runbook Markdown files into persistent "
+            "ChromaDB collections (runbooks_header / runbooks_naive)."
+        ),
+    )
+    parser.add_argument(
+        "--dir",
+        required=True,
+        help="Directory of .md runbooks to ingest, e.g. data/runbooks",
+    )
+    parser.add_argument(
+        "--mode",
+        required=True,
+        choices=["header", "naive", "both"],
+        help="Which chunking strategy/strategies to ingest into.",
+    )
+    parser.add_argument(
+        "--manifest-db",
+        default="ingestion_manifest.db",
+        help="Path to the SQLite hash manifest (default: ingestion_manifest.db).",
+    )
+    parser.add_argument(
+        "--chroma-dir",
+        default=CHROMA_PERSIST_DIR,
+        help=f"Path to the persistent ChromaDB directory (default: {CHROMA_PERSIST_DIR}).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable DEBUG-level logging.",
+    )
+    return parser
+
+
+def run_cli(argv: list[str] | None = None) -> int:
+    """Entry point for `python -m src.ingest`. Returns a process exit code."""
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    _configure_logging(verbose=args.verbose)
+
+    chunk_modes = _MODE_TO_CHUNK_MODES[args.mode]
+    logger.info(
+        "Starting ingestion: dir=%s mode=%s chroma_dir=%s manifest_db=%s",
+        args.dir, args.mode, args.chroma_dir, args.manifest_db,
+    )
+
+    results = ingest_runbooks_to_chroma(
+        runbooks_dir=args.dir,
+        manifest_db_path=args.manifest_db,
+        chroma_persist_dir=args.chroma_dir,
+        modes=chunk_modes,
+    )
+
+    new_docs = [r for r in results if r.status == "new"]
+    updated_docs = [r for r in results if r.status == "updated"]
+    skipped_docs = [r for r in results if r.status == "skipped"]
+    total_chunks = sum(sum(r.chunk_counts.values()) for r in results)
+
+    for r in new_docs:
+        logger.info("NEW:     %s (%s)", r.doc_id, _format_chunk_counts(r.chunk_counts))
+    for r in updated_docs:
+        logger.info("UPDATED: %s (%s)", r.doc_id, _format_chunk_counts(r.chunk_counts))
+    for r in skipped_docs:
+        logger.info("SKIPPED: %s", r.doc_id)
+
+    logger.info(
+        "Done. new=%d updated=%d skipped=%d total_chunks_indexed=%d",
+        len(new_docs), len(updated_docs), len(skipped_docs), total_chunks,
+    )
+    return 0
+
+
+def _format_chunk_counts(chunk_counts: dict[ChunkMode, int]) -> str:
+    return ", ".join(f"{mode}={count}" for mode, count in sorted(chunk_counts.items()))
+
+
+if __name__ == "__main__":
+    sys.exit(run_cli())
