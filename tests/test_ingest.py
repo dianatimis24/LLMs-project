@@ -9,7 +9,10 @@ from src.ingest import (
     compute_sha256,
     normalize_section_anchor,
     scan_and_chunk_incremental,
+    embed_texts
 )
+
+import src.ingest as ingest_module
 
 SAMPLE_RUNBOOK = """# RUNBOOK-PG-01: PostgreSQL Connection Pool Exhaustion
 
@@ -122,3 +125,55 @@ def test_invalid_chunk_mode_raises(tmp_path: Path):
     sample_file.write_text(SAMPLE_RUNBOOK, encoding="utf-8")
     with pytest.raises(ValueError, match="Unsupported chunk_mode"):
         chunk_file(sample_file, chunk_mode="invalid")  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# embed_texts (BGE embedding wrapper) -- Chroma-independent, so tested here.
+# Collection/upsert/delete logic is Chroma-dependent and tested in commit 2
+# against a real ChromaDB instance instead of a fake.
+# ---------------------------------------------------------------------------
+
+class FakeEmbedder:
+    """Deterministic fake standing in for SentenceTransformer -- avoids
+    downloading the real BGE model in these unit tests."""
+
+    def __init__(self):
+        self.encode_calls: list[list[str]] = []
+
+    def encode(self, texts, normalize_embeddings=True, show_progress_bar=False):
+        self.encode_calls.append(list(texts))
+        import numpy as np
+        return np.array([[float(len(t) % 7), 0.0, 1.0] for t in texts])
+
+
+@pytest.fixture(autouse=True)
+def _reset_embedder_cache(monkeypatch):
+    """Ensure no test leaks a cached _embedder into another test, and that
+    nothing here can accidentally trigger a real model download."""
+    monkeypatch.setattr(ingest_module, "_embedder", None, raising=False)
+    yield
+    monkeypatch.setattr(ingest_module, "_embedder", None, raising=False)
+
+
+@pytest.fixture
+def fake_embedder(monkeypatch) -> FakeEmbedder:
+    fake = FakeEmbedder()
+    monkeypatch.setattr(ingest_module, "get_embedder", lambda: fake)
+    return fake
+
+
+def test_embed_texts_empty_list_returns_empty(fake_embedder):
+    assert embed_texts([]) == []
+    assert fake_embedder.encode_calls == []
+
+
+def test_embed_texts_calls_embedder_and_returns_vectors(fake_embedder):
+    vectors = embed_texts(["hello world", "second chunk"])
+    assert len(vectors) == 2
+    assert fake_embedder.encode_calls == [["hello world", "second chunk"]]
+
+
+def test_embed_texts_preserves_input_order(fake_embedder):
+    texts = ["a", "bb", "ccc"]
+    embed_texts(texts)
+    assert fake_embedder.encode_calls[0] == texts
