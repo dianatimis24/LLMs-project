@@ -1,0 +1,437 @@
+[
+  {
+    "id": "INC-031",
+    "split": "adaptation",
+    "user_input": "2026-11-14T12:14:07.226Z ERROR [PaymentGateway] [authorize-worker-12] payment authorization failed order_id=ORD-88213\ngrpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.DEADLINE_EXCEEDED\n\tdetails = \"Deadline Exceeded\"\n\tdebug_error_string = \"UNKNOWN:Deadline Exceeded {grpc_status:4}\"\n>\n\tat PaymentGatewayClient.Authorize()",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-API-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T12:14:07.226Z ERROR [PaymentGateway] [authorize-worker-12] payment authorization failed order_id=ORD-88213\ngrpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.DEADLINE_EXCEEDED\n\tdetails = \"Deadline Exceeded\"\n\tdebug_error_string = \"UNKNOWN:Deadline Exceeded {grpc_status:4}\"\n>\n\tat PaymentGatewayClient.Authorize()"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "DEADLINE_EXCEEDED",
+          "service": "PaymentGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl top pods -n risk -l app=fraud-detection-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "PaymentGateway's synchronous gRPC call to FraudDetectionService is not completing within its 2000 ms deadline, so the client cancels it and raises DEADLINE_EXCEEDED (gRPC status 4). The error appears in PaymentGateway, but this matches the documented slow synchronous dependency pattern: the cause is a slow FraudDetectionService (high load or recently started pods), not PaymentGateway itself.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "PaymentGateway uses a 2000 ms gRPC deadline and retries failed calls up to 3 times.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=DEADLINE_EXCEEDED, service=PaymentGateway, grpc_deadline_ms=2000, max_retries=3"
+      },
+      {
+        "claim": "The 2000 ms deadline covers the call to FraudDetectionService; when it is slow, PaymentGateway gives up and the cause is downstream.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-API-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl top pods -n risk -l app=fraud-detection-service",
+      "kubectl get pods -n risk -l app=fraud-detection-service",
+      "kubectl scale deployment fraud-detection-service -n risk --replicas=10",
+      "grpcurl -max-time 2 fraud-detection-service.risk.svc:50051 grpc.health.v1.Health/Check"
+    ]
+  },
+  {
+    "id": "INC-032",
+    "split": "held_out",
+    "user_input": "Customers keep seeing 'payment could not be processed' at checkout, and every failed authorization takes almost exactly 2 seconds. The request rate to the fraud service has gone way up, but the number of incoming payments is flat. What is causing this?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-API-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "PaymentGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl scale deployment fraud-detection-service -n risk --replicas=10"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "A retry storm is amplifying load on FraudDetectionService. PaymentGateway calls it synchronously with a 2000 ms deadline (hence failures after about 2 seconds) and retries failed calls up to 3 times immediately, each with a fresh 2-second deadline, so every payment turns into up to 4 calls. Once FraudDetectionService slows down, the retries raise its load further, which explains a rising request rate to the fraud service while incoming payments stay flat.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "PaymentGateway calls FraudDetectionService synchronously with a 2000 ms timeout.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> FraudDetectionService (depends_on, sync, timeout_ms=2000), LedgerDB (depends_on, async)"
+      },
+      {
+        "claim": "Immediate retries with a fresh deadline turn each request into up to 4 calls and slow FraudDetectionService further; the signal is a rising request rate with flat payment volume.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-API-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl scale deployment fraud-detection-service -n risk --replicas=10",
+      "grpcurl -max-time 2 fraud-detection-service.risk.svc:50051 grpc.health.v1.Health/Check"
+    ]
+  },
+  {
+    "id": "INC-033",
+    "split": "adaptation",
+    "user_input": "2026-11-14T12:10:51.204Z INFO  [PaymentGateway] [authorize-worker-5] Authorize ok order_id=ORD-51207 upstream=fraud-detection-service-6b8d4f7c9-2xk8m latency_ms=212\n2026-11-14T12:10:53.870Z ERROR [PaymentGateway] [authorize-worker-9] Authorize failed order_id=ORD-51233 upstream=fraud-detection-service-6b8d4f7c9-q7w4z pod_age=41s after 2000ms\n2026-11-14T12:10:53.871Z WARN  [PaymentGateway] [authorize-worker-9] retrying Authorize order_id=ORD-51233 (retry 1/3)\n2026-11-14T12:10:54.402Z INFO  [PaymentGateway] [authorize-worker-2] Authorize ok order_id=ORD-51236 upstream=fraud-detection-service-6b8d4f7c9-7hd5c latency_ms=187\n2026-11-14T12:10:55.915Z ERROR [PaymentGateway] [authorize-worker-9] Authorize failed order_id=ORD-51233 upstream=fraud-detection-service-6b8d4f7c9-n2m9t pod_age=38s after 2000ms\ngrpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.DEADLINE_EXCEEDED\n\tdetails = \"Deadline Exceeded\"\n>\n\tat PaymentGatewayClient.Authorize()\n2026-11-14T12:10:55.916Z WARN  [PaymentGateway] [authorize-worker-9] retrying Authorize order_id=ORD-51233 (retry 2/3)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "PM-2026-04"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T12:10:51.204Z INFO  [PaymentGateway] [authorize-worker-5] Authorize ok order_id=ORD-51207 upstream=fraud-detection-service-6b8d4f7c9-2xk8m latency_ms=212\n2026-11-14T12:10:53.870Z ERROR [PaymentGateway] [authorize-worker-9] Authorize failed order_id=ORD-51233 upstream=fraud-detection-service-6b8d4f7c9-q7w4z pod_age=41s after 2000ms\n2026-11-14T12:10:53.871Z WARN  [PaymentGateway] [authorize-worker-9] retrying Authorize order_id=ORD-51233 (retry 1/3)\n2026-11-14T12:10:54.402Z INFO  [PaymentGateway] [authorize-worker-2] Authorize ok order_id=ORD-51236 upstream=fraud-detection-service-6b8d4f7c9-7hd5c latency_ms=187\n2026-11-14T12:10:55.915Z ERROR [PaymentGateway] [authorize-worker-9] Authorize failed order_id=ORD-51233 upstream=fraud-detection-service-6b8d4f7c9-n2m9t pod_age=38s after 2000ms\ngrpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:\n\tstatus = StatusCode.DEADLINE_EXCEEDED\n\tdetails = \"Deadline Exceeded\"\n>\n\tat PaymentGatewayClient.Authorize()\n2026-11-14T12:10:55.916Z WARN  [PaymentGateway] [authorize-worker-9] retrying Authorize order_id=ORD-51233 (retry 2/3)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "DEADLINE_EXCEEDED",
+          "service": "PaymentGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl rollout status deployment/fraud-detection-service -n risk"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "The DEADLINE_EXCEEDED errors come only from calls routed to very young FraudDetectionService pods (pod_age of about 40 seconds), while calls to older pods succeed in about 200 ms. This matches the documented cold-start incident: new pods load their ML model lazily on the first scoring request and the JVM is not warmed up, so their first requests take several seconds, longer than PaymentGateway's 2000 ms deadline. The readiness probe passed before the pods could answer in time, and PaymentGateway's immediate retries, often routed to cold pods again, added load during warm-up.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "PaymentGateway's gRPC deadline is 2000 ms with up to 3 retries, matching the 2000 ms failures and 'retry n/3' lines.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=DEADLINE_EXCEEDED, service=PaymentGateway, grpc_deadline_ms=2000, max_retries=3"
+      },
+      {
+        "claim": "New FraudDetectionService pods load the model lazily, so first requests took 4-8 seconds; the readiness probe only checked the HTTP server, and retries hit cold pods again.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-04#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl get pods -n risk -l app=fraud-detection-service",
+      "kubectl scale deployment fraud-detection-service -n risk --replicas=10",
+      "kubectl rollout status deployment/fraud-detection-service -n risk"
+    ]
+  },
+  {
+    "id": "INC-034",
+    "split": "adaptation",
+    "user_input": "Right after the autoscaler added pods to the fraud detection service, payment authorizations started timing out. Only requests routed to the new pods fail, the older pods answer in under 300 ms. Is this a known problem, and how do we stop it from happening on every scale-up?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "PM-2026-04"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "PaymentGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl rollout status deployment/fraud-detection-service -n risk"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "This is the documented cold-start incident (PM-2026-04). Newly scaled FraudDetectionService pods load their ML model lazily on the first scoring request and run on a cold JVM, so their first requests take several seconds, while PaymentGateway waits at most 2000 ms. The readiness probe only checked that the HTTP server was up, so Kubernetes sent traffic to pods that could not yet answer within the deadline. The fix is to load the model at startup and make readiness pass only after warm-up.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "PaymentGateway calls FraudDetectionService synchronously with a 2000 ms timeout, so slow new pods cause timeouts in PaymentGateway.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> FraudDetectionService (depends_on, sync, timeout_ms=2000), LedgerDB (depends_on, async)"
+      },
+      {
+        "claim": "New pods load the model lazily, the JVM is cold, and the readiness probe only checked the HTTP server.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-04#Root-Cause-Analysis"
+      },
+      {
+        "claim": "Prevention: load the model at startup and make readiness pass only after warm-up predictions.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-04#Playbook-Remediation"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl scale deployment fraud-detection-service -n risk --replicas=10",
+      "kubectl rollout status deployment/fraud-detection-service -n risk"
+    ]
+  },
+  {
+    "id": "INC-035",
+    "split": "adaptation",
+    "user_input": "2026-11-14T09:03:17.552Z WARN  [APIGateway] [nio-8443-exec-14] APIGateway.auth: JWT verification failed: no matching key for kid \"2026-11-key-b\" in cached JWKS\n2026-11-14T09:03:17.553Z INFO  [APIGateway] [nio-8443-exec-14] HTTP/1.1 401 Unauthorized GET /v1/orders\n{\"error\":\"invalid_token\",\"error_description\":\"signature verification failed\"}",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-API-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T09:03:17.552Z WARN  [APIGateway] [nio-8443-exec-14] APIGateway.auth: JWT verification failed: no matching key for kid \"2026-11-key-b\" in cached JWKS\n2026-11-14T09:03:17.553Z INFO  [APIGateway] [nio-8443-exec-14] HTTP/1.1 401 Unauthorized GET /v1/orders\n{\"error\":\"invalid_token\",\"error_description\":\"signature verification failed\"}"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "HTTP 401",
+          "service": "APIGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl rollout restart deployment/api-gateway -n gateway"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "APIGateway rejects tokens whose signing key id (kid 2026-11-key-b) is missing from its cached JWKS. After a key rotation, AuthService started signing with the new key immediately, but APIGateway caches the JWKS for 24 hours and does not refresh it when it sees an unknown kid, so every newly issued token fails verification with HTTP 401. This matches the documented gateway JWKS cache pattern.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "APIGateway caches the JWKS for 86400 seconds (24 hours), longer than the time AuthService starts signing with a new key.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=HTTP 401, service=APIGateway, jwks_cache_ttl_seconds=86400"
+      },
+      {
+        "claim": "The gateway's cached JWKS outlived the rotation and is not refreshed on an unknown kid, so new tokens are rejected.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-API-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "curl -s https://auth-service.identity.svc/.well-known/jwks.json",
+      "kubectl rollout restart deployment/api-gateway -n gateway",
+      "kubectl rollout status deployment/api-gateway -n gateway"
+    ]
+  },
+  {
+    "id": "INC-036",
+    "split": "held_out",
+    "user_input": "Right after AuthService rotated its signing keys, users who were already logged in started getting 401 on every request from the gateway, even though their tokens are less than an hour old. People who log in fresh are fine. What went wrong with the rotation?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-API-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "HTTP 401",
+          "service": "APIGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "curl -s https://auth-service.identity.svc/.well-known/jwks.json"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "AuthService removed the previous signing key from its JWKS at the moment of rotation. Access tokens stay valid for up to 1 hour, so already logged-in users still hold tokens signed with the old key, which the gateway can no longer verify and therefore rejects with HTTP 401, while fresh logins use the new key and work. This matches the documented 'old key removed before tokens expired' pattern.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "Access tokens are valid for 3600 seconds (1 hour), so tokens signed with the old key outlive its removal.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=HTTP 401, service=APIGateway, access_token_ttl_seconds=3600"
+      },
+      {
+        "claim": "Removing the previous key from the JWKS at rotation makes still-valid tokens unverifiable; the old key must stay published for at least the maximum token lifetime.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-API-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "curl -s https://auth-service.identity.svc/.well-known/jwks.json"
+    ]
+  },
+  {
+    "id": "INC-037",
+    "split": "adaptation",
+    "user_input": "2026-11-15T06:41:09.113Z [error] 31#31: *482913 upstream SSL certificate verify error: (10:certificate has expired) while SSL handshaking to upstream, client: 10.0.4.17, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.31:8443/login\", host: \"api.internal\"\n10.0.4.17 - - [15/Nov/2026:06:41:09 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"okhttp/4.12.0\"\n2026-11-15T06:41:09.288Z [error] 31#31: *482921 upstream SSL certificate verify error: (10:certificate has expired) while SSL handshaking to upstream, client: 10.0.4.22, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.32:8443/login\", host: \"api.internal\"\n10.0.4.22 - - [15/Nov/2026:06:41:09 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"Mozilla/5.0\"\n2026-11-15T06:41:12.640Z [info] 31#31: *482947 client 10.0.4.30 closed keepalive connection",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-API-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T06:41:09.113Z [error] 31#31: *482913 upstream SSL certificate verify error: (10:certificate has expired) while SSL handshaking to upstream, client: 10.0.4.17, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.31:8443/login\", host: \"api.internal\"\n10.0.4.17 - - [15/Nov/2026:06:41:09 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"okhttp/4.12.0\"\n2026-11-15T06:41:09.288Z [error] 31#31: *482921 upstream SSL certificate verify error: (10:certificate has expired) while SSL handshaking to upstream, client: 10.0.4.22, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.32:8443/login\", host: \"api.internal\"\n10.0.4.22 - - [15/Nov/2026:06:41:09 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"Mozilla/5.0\"\n2026-11-15T06:41:12.640Z [info] 31#31: *482947 client 10.0.4.30 closed keepalive connection"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "HTTP 502",
+          "service": "APIGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "openssl s_client -connect auth-service.identity.svc:8443 -servername auth-service.identity.svc"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "Every login request fails with HTTP 502 because APIGateway rejects AuthService's TLS certificate on the upstream connection to port 8443 ('certificate has expired'). This matches the documented expired upstream certificate pattern: AuthService's manually issued certificate was not renewed automatically and has expired, so the gateway refuses every handshake.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "APIGateway reaches AuthService over HTTPS on upstream port 8443 and returns HTTP 502 on TLS failure.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=HTTP 502, service=APIGateway, upstream_port=8443"
+      },
+      {
+        "claim": "The manually issued AuthService certificate expired, so APIGateway rejects every handshake; confirm via the notAfter date.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-API-03#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "openssl s_client -connect auth-service.identity.svc:8443 -servername auth-service.identity.svc",
+      "kubectl get certificate -n identity",
+      "kubectl rollout restart deployment/auth-service -n identity"
+    ]
+  },
+  {
+    "id": "INC-038",
+    "split": "held_out",
+    "user_input": "2026-11-15T10:12:44.690Z [error] 29#29: *601177 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.9, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.31:8443/login\"\n10.0.4.9 - - [15/Nov/2026:10:12:44 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"okhttp/4.12.0\"\n2026-11-15T10:12:45.011Z [warn] 29#29: *601190 upstream server temporarily disabled while SSL handshaking to upstream, client: 10.0.4.12, server: api.internal\n2026-11-15T10:12:45.302Z [error] 29#29: *601203 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.12, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.32:8443/login\"",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-API-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T10:12:44.690Z [error] 29#29: *601177 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.9, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.31:8443/login\"\n10.0.4.9 - - [15/Nov/2026:10:12:44 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"okhttp/4.12.0\"\n2026-11-15T10:12:45.011Z [warn] 29#29: *601190 upstream server temporarily disabled while SSL handshaking to upstream, client: 10.0.4.12, server: api.internal\n2026-11-15T10:12:45.302Z [error] 29#29: *601203 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.12, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.32:8443/login\""
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "HTTP 502",
+          "service": "APIGateway"
+        }
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "APIGateway"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "openssl s_client -connect auth-service.identity.svc:8443 -servername auth-service.identity.svc"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "The handshake between APIGateway and AuthService fails with 'wrong version number' rather than a certificate error, which matches the documented TLS version mismatch: AuthService accepts only TLS 1.3 while the gateway's upstream settings still allow only TLS 1.2, so no common version exists and the gateway returns HTTP 502 for login requests.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "APIGateway connects to AuthService's upstream port 8443 and returns HTTP 502 when the handshake fails.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=HTTP 502, service=APIGateway, upstream_port=8443"
+      },
+      {
+        "claim": "APIGateway calls AuthService synchronously with a 3000 ms timeout, so a failed upstream handshake directly fails login requests.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> AuthService (depends_on, sync, timeout_ms=3000)"
+      },
+      {
+        "claim": "A 'wrong version number' or 'unsupported protocol' error, instead of a certificate error, indicates a TLS version mismatch between gateway and AuthService.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-API-03#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "openssl s_client -connect auth-service.identity.svc:8443 -servername auth-service.identity.svc"
+    ]
+  },
+  {
+    "id": "INC-039",
+    "split": "adaptation",
+    "user_input": "2026-11-15T13:27:50.044Z WARN  [AuthService] [oauth-token-7] token endpoint rejected refresh request client_id=mobile-app\norg.springframework.security.oauth2.core.OAuth2AuthenticationException: [invalid_grant] Refresh token reuse detected, revoking token family\n\tat com.rootcause.auth.token.RefreshTokenService.rotate(RefreshTokenService.java:131)\n\tat com.rootcause.auth.web.TokenController.refresh(TokenController.java:74)\n2026-11-15T13:27:50.047Z INFO  [AuthService] [oauth-token-7] revoked 3 refresh tokens for user_id=u-90412",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T13:27:50.044Z WARN  [AuthService] [oauth-token-7] token endpoint rejected refresh request client_id=mobile-app\norg.springframework.security.oauth2.core.OAuth2AuthenticationException: [invalid_grant] Refresh token reuse detected, revoking token family\n\tat com.rootcause.auth.token.RefreshTokenService.rotate(RefreshTokenService.java:131)\n\tat com.rootcause.auth.web.TokenController.refresh(TokenController.java:74)\n2026-11-15T13:27:50.047Z INFO  [AuthService] [oauth-token-7] revoked 3 refresh tokens for user_id=u-90412"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "invalid_grant",
+          "service": "AuthService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
+    "expected_evidence_mapping": [
+      {
+        "claim": "invalid_grant is not registered for AuthService, and no runbook covers OAuth refresh token reuse.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> status=unknown_code"
+      }
+    ],
+    "ground_truth_remediation": [
+      "INSUFFICIENT_EVIDENCE: No runbook or error registry entry covers OAuth refresh token reuse in AuthService. Check whether the client retried a refresh with an already-rotated token and escalate to the Identity-Team."
+    ]
+  },
+  {
+    "id": "INC-040",
+    "split": "held_out",
+    "user_input": "Our mobile app gets HTTP 429 Too Many Requests from the API gateway when it syncs the product catalog on startup. What should we change so the sync stops being throttled?",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "HTTP 429",
+          "service": "APIGateway"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
+    "expected_evidence_mapping": [
+      {
+        "claim": "HTTP 429 is not registered for APIGateway, and no runbook covers gateway rate limiting.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> status=unknown_code"
+      }
+    ],
+    "ground_truth_remediation": [
+      "INSUFFICIENT_EVIDENCE: Gateway rate limiting and HTTP 429 are not covered by the current knowledge base or tool registries; the authentication and TLS runbooks do not apply. Review the gateway rate-limit policy and escalate to the Platform-Team."
+    ]
+  }
+]
