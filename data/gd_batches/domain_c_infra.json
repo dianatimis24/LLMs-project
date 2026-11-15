@@ -1,0 +1,462 @@
+[
+  {
+    "id": "INC-021",
+    "split": "adaptation",
+    "user_input": "    Last State:     Terminated\n      Reason:       OOMKilled\n      Exit Code:    137\n    Restart Count:  14\n    (pod recommendation-service-7c9d5b6f8-h2xkq, namespace recommendations)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "    Last State:     Terminated\n      Reason:       OOMKilled\n      Exit Code:    137\n    Restart Count:  14\n    (pod recommendation-service-7c9d5b6f8-h2xkq, namespace recommendations)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "OOMKilled",
+          "service": "RecommendationService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl top pod -n recommendations -l app=recommendation-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "RecommendationService pods are OOMKilled (exit 137) because -Xmx1024m lets the JVM heap alone use the entire 1Gi container limit. Metaspace, thread stacks and GC structures have no room, so the kernel sends SIGKILL before the JVM can throw an OutOfMemoryError.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "RecommendationService's OOMKilled code is registered as Container Memory (SEV-3, Recommendations-Team) with a 1024 MiB memory limit and a 1024 MB JVM max heap.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=OOMKilled, service=RecommendationService, memory_limit_mi=1024, jvm_max_heap_mb=1024"
+      },
+      {
+        "claim": "A heap sized to the full container limit leaves no room for non-heap JVM memory, so the kernel kills the container before any Java error is logged.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl describe pod recommendation-service-7c9d5b6f8-h2xkq -n recommendations",
+      "kubectl logs recommendation-service-7c9d5b6f8-h2xkq -n recommendations --previous --tail=50",
+      "kubectl top pod -n recommendations -l app=recommendation-service",
+      "Replace -Xmx1024m with -XX:MaxRAMPercentage=75.0 in the deployment manifest",
+      "kubectl rollout status deployment/recommendation-service -n recommendations"
+    ]
+  },
+  {
+    "id": "INC-022",
+    "split": "adaptation",
+    "user_input": "Our recommendation pods restart more often during peak hours, roughly every few hours, and the app logs show nothing before each restart. Memory climbs steadily as more users browse. What's causing this and how do we stop it?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "OOMKilled",
+          "service": "RecommendationService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl get pods -n recommendations -l app=recommendation-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "RecommendationService is restarting with OOMKilled because its user embedding cache has no size limit or eviction. Memory grows with the number of active users until it reaches the 1Gi container limit. Restarts tracking high-traffic periods point to the cache as the main cause.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The OOMKilled code for RecommendationService is registered with a 1024 MiB memory limit.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=OOMKilled, service=RecommendationService, memory_limit_mi=1024"
+      },
+      {
+        "claim": "The user embedding cache has no size limit or eviction, so memory grows with active users until the container is killed.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl get pods -n recommendations -l app=recommendation-service",
+      "Limit the embedding cache size and add LRU eviction (for example 200,000 entries)",
+      "kubectl rollout status deployment/recommendation-service -n recommendations"
+    ]
+  },
+  {
+    "id": "INC-023",
+    "split": "adaptation",
+    "user_input": "NAME                                 READY   STATUS             RESTARTS   AGE\ninventory-service-6d9f8c7b5-x2k4p    0/1     CrashLoopBackOff   6          9m\nEvents: Liveness probe failed: Get \"http://10.2.3.4:8080/healthz\": dial tcp 10.2.3.4:8080: connect: connection refused. Exit Code: 143. New pods never become ready after this morning's deploy. Why?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "NAME                                 READY   STATUS             RESTARTS   AGE\ninventory-service-6d9f8c7b5-x2k4p    0/1     CrashLoopBackOff   6          9m\nEvents: Liveness probe failed: Get \"http://10.2.3.4:8080/healthz\": dial tcp 10.2.3.4:8080: connect: connection refused. Exit Code: 143. New pods never become ready after this morning's deploy. Why?"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "CrashLoopBackOff",
+          "service": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl describe pod inventory-service-6d9f8c7b5-x2k4p -n inventory"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "InventoryService is in CrashLoopBackOff because the release loads the SKU catalog for about 45 seconds before its HTTP server listens. The liveness probe starts at 10 seconds and fails with connection refused, so the kubelet kills the container at about 25 seconds, and the next start fails the same way.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness probe of 10 s initial delay, 5 s period and failure threshold 3.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=CrashLoopBackOff, service=InventoryService, liveness_initial_delay_seconds=10, liveness_failure_threshold=3"
+      },
+      {
+        "claim": "The release loads the catalog for about 45 seconds before listening, so the liveness probe gets connection refused and the container is killed.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl describe pod inventory-service-6d9f8c7b5-x2k4p -n inventory",
+      "kubectl logs inventory-service-6d9f8c7b5-x2k4p -n inventory --previous --tail=30",
+      "kubectl rollout undo deployment/inventory-service -n inventory",
+      "Add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5",
+      "kubectl get pods -n inventory -l app=inventory-service"
+    ]
+  },
+  {
+    "id": "INC-024",
+    "split": "adaptation",
+    "user_input": "Every InventoryService pod restarted at the same time about 10 minutes ago. The events say the liveness probe timed out, not connection refused. InventoryDB latency has been high since then. Why did all pods restart together?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "CrashLoopBackOff",
+          "service": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl get pods -n inventory -l app=inventory-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "The InventoryService liveness probe on /healthz also queries InventoryDB. When the database is slow, every pod fails liveness at once, so the kubelet restarts them together and a database slowdown becomes a full outage.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness failure threshold of 3.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=CrashLoopBackOff, service=InventoryService, liveness_failure_threshold=3"
+      },
+      {
+        "claim": "The liveness probe checks InventoryDB as well, so a slow database fails every pod's liveness check at the same time.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl get pods -n inventory -l app=inventory-service",
+      "Keep the liveness probe shallow: check only that the process responds",
+      "Move the InventoryDB check into the readiness probe",
+      "kubectl rollout status deployment/inventory-service -n inventory"
+    ]
+  },
+  {
+    "id": "INC-025",
+    "split": "adaptation",
+    "user_input": "Warning Evicted pod/image-service-5f7b8d9c4-p8w2m\nStatus:   Failed\nReason:   Evicted\nMessage:  The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 7%.\n          Container image-service was using 18Gi, request is 0, has larger consumption of ephemeral-storage.\nNode worker-node-3 condition: DiskPressure=True",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "Warning Evicted pod/image-service-5f7b8d9c4-p8w2m\nStatus:   Failed\nReason:   Evicted\nMessage:  The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 7%.\n          Container image-service was using 18Gi, request is 0, has larger consumption of ephemeral-storage.\nNode worker-node-3 condition: DiskPressure=True"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "Evicted",
+          "service": "ImageService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl describe node worker-node-3"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "ImageService pods are being evicted because failed resize jobs leave temporary files in /tmp, which is backed by node ephemeral storage, and never delete them. The node disk fills past the kubelet's 10% free threshold, and the kubelet evicts pods, starting with the largest consumer.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The Evicted code for ImageService is registered as Node Resource Pressure (SEV-3, Media-Team) with a 10% nodefs eviction threshold.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=Evicted, service=ImageService, eviction_hard_nodefs_available=10%"
+      },
+      {
+        "claim": "Temporary files from failed resizes are not deleted, so they fill the node disk over days until the kubelet evicts pods.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-03#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl describe node worker-node-3",
+      "kubectl get pods -n media --field-selector=status.phase=Failed",
+      "kubectl rollout restart deployment/image-service -n media",
+      "kubectl rollout status deployment/image-service -n media"
+    ]
+  },
+  {
+    "id": "INC-026",
+    "split": "adaptation",
+    "user_input": "Our checkout pods on worker-node-3 keep getting Evicted even though their own usage looks fine, and nothing in our service changed. Which workload is filling the node's disk, and why do unrelated pods get killed?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "Evicted",
+          "service": "ImageService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl get pods -n media --field-selector=status.phase=Failed"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "ImageService is filling the node's ephemeral storage with temporary files from failed resizes. Because ImageService has no ephemeral-storage limits, one pod can consume the whole node disk, so the kubelet evicts pods across the node, including unrelated checkout pods.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The Evicted code for ImageService is registered as Node Resource Pressure with a 10% nodefs eviction threshold.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=Evicted, service=ImageService, eviction_hard_nodefs_available=10%"
+      },
+      {
+        "claim": "Without ephemeral-storage limits, one pod can consume the whole node disk, so the kubelet evicts pods across the node instead of only the offending pod.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-03#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl describe node worker-node-3",
+      "kubectl get pods -n media --field-selector=status.phase=Failed",
+      "Set ephemeral-storage requests and limits on image-service (request 2Gi, limit 4Gi)",
+      "Delete temporary files in a finally block so failed resizes do not leak them"
+    ]
+  },
+  {
+    "id": "INC-027",
+    "split": "held_out",
+    "user_input": "Why do recommendation pods keep dying with exit code 137 and no error in the app logs? They restart every few hours, and the previous container's logs just stop. Is this a memory problem?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "OOMKilled",
+          "service": "RecommendationService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl top pod -n recommendations -l app=recommendation-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "RecommendationService is OOMKilled because its JVM heap is set to -Xmx1024m, which equals the full 1Gi container limit. Heap plus non-heap memory exceeds the limit, so the kernel sends SIGKILL, and no Java error is logged.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The OOMKilled code for RecommendationService is registered with a 1024 MiB memory limit and a 1024 MB JVM max heap.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=OOMKilled, service=RecommendationService, memory_limit_mi=1024, jvm_max_heap_mb=1024"
+      },
+      {
+        "claim": "A heap sized to the full container limit leaves no room for non-heap JVM memory, so SIGKILL arrives before any Java error is logged.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl top pod -n recommendations -l app=recommendation-service",
+      "Replace -Xmx1024m with -XX:MaxRAMPercentage=75.0 in the deployment manifest",
+      "kubectl rollout status deployment/recommendation-service -n recommendations"
+    ]
+  },
+  {
+    "id": "INC-028",
+    "split": "held_out",
+    "user_input": "Container inventory failed liveness probe, will be restarted\nLast State: Terminated, Exit Code: 143\nWarning Unhealthy Liveness probe failed: Get \"http://10.2.3.4:8080/healthz\": dial tcp 10.2.3.4:8080: connect: connection refused\nBack-off restarting failed container inventory in pod inventory-service-6d9f8c7b5-x2k4p",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "Container inventory failed liveness probe, will be restarted\nLast State: Terminated, Exit Code: 143\nWarning Unhealthy Liveness probe failed: Get \"http://10.2.3.4:8080/healthz\": dial tcp 10.2.3.4:8080: connect: connection refused\nBack-off restarting failed container inventory in pod inventory-service-6d9f8c7b5-x2k4p"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "CrashLoopBackOff",
+          "service": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl logs inventory-service-6d9f8c7b5-x2k4p -n inventory --previous --tail=30"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "The liveness probe fires before InventoryService finishes startup. The catalog load takes about 45 seconds, but the probe kills the container at about 25 seconds with connection refused. Exit 143 is the kubelet's SIGTERM from the probe failure, not an application crash.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness initial delay of 10 seconds and a failure threshold of 3.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=CrashLoopBackOff, service=InventoryService, liveness_initial_delay_seconds=10, liveness_failure_threshold=3"
+      },
+      {
+        "claim": "The HTTP server only listens after the catalog loads, so the liveness probe gets connection refused and the kubelet kills the container.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl logs inventory-service-6d9f8c7b5-x2k4p -n inventory --previous --tail=30",
+      "kubectl describe pod inventory-service-6d9f8c7b5-x2k4p -n inventory",
+      "Add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5",
+      "kubectl get pods -n inventory -l app=inventory-service"
+    ]
+  },
+  {
+    "id": "INC-029",
+    "split": "held_out",
+    "user_input": "image-service pods on worker-node-3 were evicted and the node now shows DiskPressure. What is the fastest way to get the node healthy again without touching the other services?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "Evicted",
+          "service": "ImageService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl rollout restart deployment/image-service -n media"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "ImageService temporary files from failed resizes are filling the node disk. Restarting image-service gives each new pod an empty /tmp and frees the old files, which relieves DiskPressure. Temp-file cleanup and ephemeral-storage limits are needed to prevent a repeat.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The Evicted code for ImageService is registered with a 10% nodefs eviction threshold.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=Evicted, service=ImageService, eviction_hard_nodefs_available=10%"
+      },
+      {
+        "claim": "Restarting image-service gives each new pod an empty /tmp, which frees the disk space used by the old pods.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-03#Playbook-Remediation"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl rollout restart deployment/image-service -n media",
+      "kubectl rollout status deployment/image-service -n media",
+      "Delete temporary files in a finally block",
+      "Set ephemeral-storage requests and limits on image-service"
+    ]
+  },
+  {
+    "id": "INC-030",
+    "split": "held_out",
+    "user_input": "We just shipped a new InventoryService release and every new pod is stuck in CrashLoopBackOff. Stock lookups are failing for customers. What is the quickest way to restore service, and what do we fix afterward?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-INFRA-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "CrashLoopBackOff",
+          "service": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl rollout undo deployment/inventory-service -n inventory"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "The new InventoryService release loads the catalog for about 45 seconds, but its liveness probe starts at 10 seconds and kills the container at about 25 seconds, so pods never become ready. Roll back the release first, then add a startupProbe and keep liveness shallow.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness initial delay of 10 seconds and a failure threshold of 3.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=CrashLoopBackOff, service=InventoryService, liveness_initial_delay_seconds=10, liveness_failure_threshold=3"
+      },
+      {
+        "claim": "Rolling back to the previous release restores service quickly, and a startupProbe gives the catalog load time before liveness checks begin.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-INFRA-02#Playbook-Remediation"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kubectl rollout undo deployment/inventory-service -n inventory",
+      "kubectl rollout status deployment/inventory-service -n inventory",
+      "Add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5",
+      "kubectl get pods -n inventory -l app=inventory-service"
+    ]
+  }
+]
