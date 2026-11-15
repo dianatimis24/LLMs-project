@@ -1,0 +1,410 @@
+[
+  {
+    "id": "INC-001",
+    "split": "held_out",
+    "user_input": "2026-11-12T14:22:01.412Z ERROR [OrderService] [pool-2-thread-19] org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserved for non-replication superuser connections (SQLSTATE 53300)\n\tat org.postgresql.core.v3.ConnectionFactoryImpl.readStartupMessages(ConnectionFactoryImpl.java:695)\n\tat com.rootcause.orders.db.OrderRepository.connect(OrderRepository.java:88)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-PG-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-12T14:22:01.412Z ERROR [OrderService] [pool-2-thread-19] org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserved for non-replication superuser connections (SQLSTATE 53300)\n\tat org.postgresql.core.v3.ConnectionFactoryImpl.readStartupMessages(ConnectionFactoryImpl.java:695)\n\tat com.rootcause.orders.db.OrderRepository.connect(OrderRepository.java:88)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "53300",
+          "service": "OrderService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "SELECT pid, state, query_start, query FROM pg_stat_activity WHERE datname = 'orders_db' AND state = 'idle in transaction';"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "OrderService has exhausted its configured PostgreSQL connection limit of 100 connections (SQLSTATE 53300). This matches the documented failure pattern where unclosed async database sessions remain 'idle in transaction' in OrderService workers during traffic spikes.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "OrderService has exhausted its configured 100-connection PostgreSQL limit (SQLSTATE 53300).",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=53300, service=OrderService, max_connections_limit=100"
+      },
+      {
+        "claim": "Unclosed async database sessions in OrderService workers accumulate during traffic spikes and exhaust the connection pool.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-PG-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "SELECT pid, state, query_start, query FROM pg_stat_activity WHERE datname = 'orders_db' AND state = 'idle in transaction';",
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'orders_db' AND state = 'idle in transaction' AND state_change < now() - interval '5 minutes';",
+      "kubectl rollout restart deployment/order-service -n production"
+    ]
+  },
+  {
+    "id": "INC-002",
+    "split": "adaptation",
+    "user_input": "Our checkout flow is failing intermittently with SQLSTATE 53300 on OrderService. Why are we running out of DB connections and how do we safely clear the stuck ones?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-PG-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "53300",
+          "service": "OrderService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "SELECT pid, state, query_start, query FROM pg_stat_activity WHERE datname = 'orders_db' AND state = 'idle in transaction';"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "OrderService is hitting its 100-connection PostgreSQL cap (SQLSTATE 53300, SEV-2 owned by Checkout-DB-Team) due to leaked transactions in async order workers that fail to close sessions upon upstream timeout.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "SQLSTATE 53300 on OrderService indicates Database Capacity exhaustion at max_connections_limit=100 (SEV-2).",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=53300, service=OrderService"
+      },
+      {
+        "claim": "Leaked transactions in async order workers fail to release connections back to PgBouncer/pool on timeout.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-PG-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "SELECT pid, state, query_start, query FROM pg_stat_activity WHERE datname = 'orders_db' AND state = 'idle in transaction';",
+      "kubectl rollout restart deployment/order-service -n production"
+    ]
+  },
+  {
+    "id": "INC-003",
+    "split": "adaptation",
+    "user_input": "2026-11-10T09:14:55.102Z ERROR [InventoryService] sqlalchemy.exc.OperationalError: (psycopg2.errors.DeadlockDetected) ERROR: deadlock detected (SQLSTATE 40P01)\nDETAIL: Process 18422 waits for ShareLock on transaction 994120; blocked by process 18490.\nProcess 18490 waits for ShareLock on transaction 994118; blocked by process 18422.\n\tat app/services/inventory_updater.py:142 in reserve_stock_batch",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-PG-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-10T09:14:55.102Z ERROR [InventoryService] sqlalchemy.exc.OperationalError: (psycopg2.errors.DeadlockDetected) ERROR: deadlock detected (SQLSTATE 40P01)\nDETAIL: Process 18422 waits for ShareLock on transaction 994120; blocked by process 18490.\nProcess 18490 waits for ShareLock on transaction 994118; blocked by process 18422.\n\tat app/services/inventory_updater.py:142 in reserve_stock_batch"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "40P01",
+          "service": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "SELECT blocked_locks.pid AS blocked_pid, blocking_locks.pid AS blocking_pid, blocked_activity.query AS blocked_statement FROM pg_catalog.pg_locks blocked_locks JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid JOIN pg_catalog.pg_locks blocking_locks ON blocking_locks.locktype = blocked_locks.locktype;"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "InventoryService encountered a PostgreSQL row-level lock cycle (SQLSTATE 40P01, DeadlockDetected) in reserve_stock_batch because concurrent workers lock SKU rows in unsorted order during bulk cart reservations.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "SQLSTATE 40P01 in InventoryService is a Concurrency / Lock Contention error (SEV-2, Inventory-Core-Team).",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=40P01, service=InventoryService"
+      },
+      {
+        "claim": "Concurrent workers executing bulk UPDATE/SELECT FOR UPDATE on inventory_items without sorting by sku_id acquire row locks in opposite orders.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-PG-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "SELECT blocked_locks.pid AS blocked_pid, blocking_locks.pid AS blocking_pid, blocked_activity.query AS blocked_statement FROM pg_catalog.pg_locks blocked_locks JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid JOIN pg_catalog.pg_locks blocking_locks ON blocking_locks.locktype = blocked_locks.locktype;",
+      "Ensure batch stock reservation queries sort SKU IDs in ascending order (ORDER BY sku_id ASC) before acquiring FOR UPDATE locks."
+    ]
+  },
+  {
+    "id": "INC-004",
+    "split": "held_out",
+    "user_input": "InventoryService keeps throwing psycopg2.errors.DeadlockDetected (40P01) during flash sales when multiple carts check out simultaneously. What is causing the lock cycle?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-PG-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "40P01",
+          "service": "InventoryService"
+        }
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "InventoryService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "Concurrent transactions in InventoryService are locking overlapping SKU rows in inconsistent order during multi-item reservations, triggering PostgreSQL deadlock detection (SQLSTATE 40P01) after the 1000ms deadlock_timeout.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "Error 40P01 in InventoryService corresponds to PostgreSQL deadlock detection with a configured deadlock_timeout_ms of 1000ms.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=40P01, service=InventoryService"
+      },
+      {
+        "claim": "Unsorted multi-row SELECT ... FOR UPDATE statements across concurrent flash-sale workers create circular wait conditions.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-PG-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "Sort item IDs deterministically before executing SELECT ... FOR UPDATE in reserve_stock_batch.",
+      "Enable bounded exponential backoff retries for SQLSTATE 40P01 in InventoryService transaction middleware."
+    ]
+  },
+  {
+    "id": "INC-005",
+    "split": "adaptation",
+    "user_input": "2026-11-11T18:05:33.890Z ERROR [ReportingService] org.postgresql.util.PSQLException: ERROR: canceling statement due to statement timeout (SQLSTATE 57014)\n\tat com.rootcause.reporting.dao.InvoiceQueryDao.fetchMonthlyAggregates(InvoiceQueryDao.java:211)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-PG-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-11T18:05:33.890Z ERROR [ReportingService] org.postgresql.util.PSQLException: ERROR: canceling statement due to statement timeout (SQLSTATE 57014)\n\tat com.rootcause.reporting.dao.InvoiceQueryDao.fetchMonthlyAggregates(InvoiceQueryDao.java:211)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "57014",
+          "service": "ReportingService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "EXPLAIN (ANALYZE, BUFFERS) SELECT tenant_id, SUM(amount) FROM invoices WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY tenant_id;"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "ReportingService exceeded its 5000ms PostgreSQL statement_timeout (SQLSTATE 57014) in fetchMonthlyAggregates because the query performs a full sequential scan on the invoices table due to a missing composite index on (tenant_id, created_at) or stale table statistics.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "SQLSTATE 57014 in ReportingService triggers when a query exceeds the configured statement_timeout_ms=5000.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=57014, service=ReportingService"
+      },
+      {
+        "claim": "fetchMonthlyAggregates degrades into a sequential scan on invoices when the composite index idx_invoices_tenant_created is missing or bloated.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-PG-03#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "EXPLAIN (ANALYZE, BUFFERS) SELECT tenant_id, SUM(amount) FROM invoices WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY tenant_id;",
+      "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_invoices_tenant_created ON invoices (tenant_id, created_at);",
+      "ANALYZE VERBOSE invoices;"
+    ]
+  },
+  {
+    "id": "INC-006",
+    "split": "adaptation",
+    "user_input": "Queries in ReportingService are getting killed after 5 seconds with SQLSTATE 57014 after yesterday's bulk data import into the invoices table. How do we fix this without locking writes?",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-PG-03"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "57014",
+          "service": "ReportingService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "ANALYZE VERBOSE invoices;"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "Following the bulk data import, outdated planner statistics and missing/unindexed ranges on the invoices table caused the PostgreSQL query planner to choose a sequential scan, exceeding ReportingService's 5000ms statement_timeout (SQLSTATE 57014).",
+    "expected_evidence_mapping": [
+      {
+        "claim": "ReportingService enforces a 5000ms statement_timeout (SQLSTATE 57014, SEV-3, Analytics-Platform-Team).",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=57014, service=ReportingService"
+      },
+      {
+        "claim": "Bulk imports leave pg_statistic stale until autovacuum/ANALYZE runs, causing sequential scans; index creation must use CONCURRENTLY to avoid table write locks.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-PG-03#Playbook-Remediation"
+      }
+    ],
+    "ground_truth_remediation": [
+      "ANALYZE VERBOSE invoices;",
+      "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_invoices_tenant_created ON invoices (tenant_id, created_at);"
+    ]
+  },
+  {
+    "id": "INC-007",
+    "split": "adaptation",
+    "user_input": "2026-11-13T11:40:12.004Z WARN [UserProfileService] ReadWriteRoutingDataSource: StaleReadException (ERR_REPLICA_LAG_HIGH) - Read replica pg-replica-02 replay lag is 48500ms (threshold: 5000ms) in UserProfileRepository.getProfileById",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "PM-2026-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-13T11:40:12.004Z WARN [UserProfileService] ReadWriteRoutingDataSource: StaleReadException (ERR_REPLICA_LAG_HIGH) - Read replica pg-replica-02 replay lag is 48500ms (threshold: 5000ms) in UserProfileRepository.getProfileById"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "ERR_REPLICA_LAG_HIGH",
+          "service": "UserProfileService"
+        }
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "UserProfileService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "UserProfileService is experiencing stale reads (ERR_REPLICA_LAG_HIGH) because PostgreSQL read replica pg-replica-02 exceeded its 5000ms replication lag threshold. Based on prior post-mortem PM-2026-01, heavy batch write bursts or long-running analytical queries on the replica block WAL replay.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "ERR_REPLICA_LAG_HIGH in UserProfileService triggers when replica lag exceeds max_replica_lag_ms=5000.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=ERR_REPLICA_LAG_HIGH, service=UserProfileService"
+      },
+      {
+        "claim": "Heavy batch writes on the primary combined with long-running queries on pg-replica-02 delay WAL replay application.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "SELECT client_addr, state, sync_state, pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) AS byte_lag FROM pg_stat_replication;",
+      "Temporarily route UserProfileService critical reads to the primary instance until replay_lag drops below 5000ms."
+    ]
+  },
+  {
+    "id": "INC-008",
+    "split": "held_out",
+    "user_input": "Users update their profile settings in UserProfileService, refresh the page, and still see their old data for almost a minute. Logs show ERR_REPLICA_LAG_HIGH on pg-replica-02.",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "PM-2026-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "ERR_REPLICA_LAG_HIGH",
+          "service": "UserProfileService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "SELECT client_addr, state, sync_state, pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) AS byte_lag FROM pg_stat_replication;"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "Read-after-write inconsistency in UserProfileService is caused by WAL replay lag on read replica pg-replica-02 exceeding the 5000ms SLA (ERR_REPLICA_LAG_HIGH), documented in PM-2026-01.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "ERR_REPLICA_LAG_HIGH indicates replication lag above the 5000ms threshold in UserProfileService.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=ERR_REPLICA_LAG_HIGH, service=UserProfileService"
+      },
+      {
+        "claim": "Read-after-write inconsistency occurs when UserProfileService routes immediate follow-up GET requests to a lagging read replica.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "SELECT client_addr, state, sync_state, pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) AS byte_lag FROM pg_stat_replication;",
+      "Pin session reads to the primary DB for 10 seconds after a profile mutation or circuit-break lagging replica pg-replica-02."
+    ]
+  },
+  {
+    "id": "INC-009",
+    "split": "adaptation",
+    "user_input": "2026-11-14T03:12:09.511Z FATAL [BillingArchiveService] com.datastax.oss.driver.api.core.AllNodesFailedException: Could not reach any contact point, make sure you've provided valid addresses (Cassandra CorruptSSTableException on keyspace billing_v2)",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T03:12:09.511Z FATAL [BillingArchiveService] com.datastax.oss.driver.api.core.AllNodesFailedException: Could not reach any contact point, make sure you've provided valid addresses (Cassandra CorruptSSTableException on keyspace billing_v2)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "CorruptSSTableException",
+          "service": "BillingArchiveService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
+    "expected_evidence_mapping": [],
+    "ground_truth_remediation": [
+      "INSUFFICIENT_EVIDENCE: No internal runbook or error registry entry covers Apache Cassandra CorruptSSTableException or BillingArchiveService. Perform manual checks on Cassandra node logs and nodetool status."
+    ]
+  },
+  {
+    "id": "INC-010",
+    "split": "held_out",
+    "user_input": "2026-11-14T07:50:19.220Z ERROR [RecommendationEngine] neo4j.exceptions.TransientError: {code: Neo.TransientError.Transaction.LockClientStopped} Lock clientforsession-8821 stopped due to Cypher graph traversal memory limit.",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T07:50:19.220Z ERROR [RecommendationEngine] neo4j.exceptions.TransientError: {code: Neo.TransientError.Transaction.LockClientStopped} Lock clientforsession-8821 stopped due to Cypher graph traversal memory limit."
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "Neo.TransientError.Transaction.LockClientStopped",
+          "service": "RecommendationEngine"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
+    "expected_evidence_mapping": [],
+    "ground_truth_remediation": [
+      "INSUFFICIENT_EVIDENCE: RecommendationEngine and Neo4j graph errors are not covered by the current knowledge base or tool registries. Inspect Neo4j dbms.memory.transaction.total.max settings manually."
+    ]
+  }
+]
