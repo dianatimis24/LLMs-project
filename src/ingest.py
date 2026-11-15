@@ -1,9 +1,12 @@
-﻿import hashlib
+﻿import argparse
+import hashlib
+import logging
 import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Any, Literal
 
 from langchain_text_splitters import (
@@ -449,3 +452,108 @@ def ingest_runbooks_to_chroma(
         )
 
     return results
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+logger = logging.getLogger("src.ingest")
+
+CLIMode = Literal["header", "naive", "both"]
+
+_MODE_TO_CHUNK_MODES: dict[CLIMode, tuple[ChunkMode, ...]] = {
+    "header": ("header",),
+    "naive": ("naive",),
+    "both": ("header", "naive"),
+}
+
+
+def _configure_logging(verbose: bool = False) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m src.ingest",
+        description=(
+            "Incrementally embed runbook Markdown files into persistent "
+            "ChromaDB collections (runbooks_header / runbooks_naive)."
+        ),
+    )
+    parser.add_argument(
+        "--dir",
+        required=True,
+        help="Directory of .md runbooks to ingest, e.g. data/runbooks",
+    )
+    parser.add_argument(
+        "--mode",
+        required=True,
+        choices=["header", "naive", "both"],
+        help="Which chunking strategy/strategies to ingest into.",
+    )
+    parser.add_argument(
+        "--manifest-db",
+        default="ingestion_manifest.db",
+        help="Path to the SQLite hash manifest (default: ingestion_manifest.db).",
+    )
+    parser.add_argument(
+        "--chroma-dir",
+        default=CHROMA_PERSIST_DIR,
+        help=f"Path to the persistent ChromaDB directory (default: {CHROMA_PERSIST_DIR}).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable DEBUG-level logging.",
+    )
+    return parser
+
+
+def run_cli(argv: list[str] | None = None) -> int:
+    """Entry point for `python -m src.ingest`. Returns a process exit code."""
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    _configure_logging(verbose=args.verbose)
+
+    chunk_modes = _MODE_TO_CHUNK_MODES[args.mode]
+    logger.info(
+        "Starting ingestion: dir=%s mode=%s chroma_dir=%s manifest_db=%s",
+        args.dir, args.mode, args.chroma_dir, args.manifest_db,
+    )
+
+    results = ingest_runbooks_to_chroma(
+        runbooks_dir=args.dir,
+        manifest_db_path=args.manifest_db,
+        chroma_persist_dir=args.chroma_dir,
+        modes=chunk_modes,
+    )
+
+    new_docs = [r for r in results if r.status == "new"]
+    updated_docs = [r for r in results if r.status == "updated"]
+    skipped_docs = [r for r in results if r.status == "skipped"]
+    total_chunks = sum(sum(r.chunk_counts.values()) for r in results)
+
+    for r in new_docs:
+        logger.info("NEW:     %s (%s)", r.doc_id, _format_chunk_counts(r.chunk_counts))
+    for r in updated_docs:
+        logger.info("UPDATED: %s (%s)", r.doc_id, _format_chunk_counts(r.chunk_counts))
+    for r in skipped_docs:
+        logger.info("SKIPPED: %s", r.doc_id)
+
+    logger.info(
+        "Done. new=%d updated=%d skipped=%d total_chunks_indexed=%d",
+        len(new_docs), len(updated_docs), len(skipped_docs), total_chunks,
+    )
+    return 0
+
+
+def _format_chunk_counts(chunk_counts: dict[ChunkMode, int]) -> str:
+    return ", ".join(f"{mode}={count}" for mode, count in sorted(chunk_counts.items()))
+
+
+if __name__ == "__main__":
+    sys.exit(run_cli())
