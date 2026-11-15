@@ -1,0 +1,464 @@
+[
+  {
+    "id": "INC-011",
+    "split": "adaptation",
+    "user_input": "2026-11-14T19:02:11.873Z ERROR [CartService] [worker-7] request_id=8f2c1e POST /cart/items failed\nTraceback (most recent call last):\n  File \"/app/cart/api/routes.py\", line 54, in add_item\n    cart_store.save_cart(cart)\n  File \"/app/cart/cart_store.py\", line 112, in save_cart\n    self._redis.set(key, payload)\n  File \"/usr/local/lib/python3.12/site-packages/redis/client.py\", line 1269, in execute_command\n    return self.parse_response(conn, command_name, **options)\nredis.exceptions.ResponseError: OOM command not allowed when used memory > 'maxmemory'.\n2026-11-14T19:02:11.874Z WARN  [CartService] [worker-7] retrying save_cart in 50ms (attempt 2/3)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-CACHE-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T19:02:11.873Z ERROR [CartService] [worker-7] request_id=8f2c1e POST /cart/items failed\nTraceback (most recent call last):\n  File \"/app/cart/api/routes.py\", line 54, in add_item\n    cart_store.save_cart(cart)\n  File \"/app/cart/cart_store.py\", line 112, in save_cart\n    self._redis.set(key, payload)\n  File \"/usr/local/lib/python3.12/site-packages/redis/client.py\", line 1269, in execute_command\n    return self.parse_response(conn, command_name, **options)\nredis.exceptions.ResponseError: OOM command not allowed when used memory > 'maxmemory'.\n2026-11-14T19:02:11.874Z WARN  [CartService] [worker-7] retrying save_cart in 50ms (attempt 2/3)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "OOM",
+          "service": "CartService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "redis-cli INFO keyspace"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "CartCache has reached its 2048 MB maxmemory limit and, because its eviction policy is noeviction, Redis rejects every write, so CartService.save_cart() fails with OOM. This matches the documented pattern where cart keys are written with SET instead of SETEX, so abandoned carts never expire and accumulate until memory is full.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "CartCache is limited to 2048 MB with maxmemory-policy noeviction, so writes are rejected once memory is full.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=OOM, service=CartService, maxmemory_mb=2048, maxmemory_policy=noeviction"
+      },
+      {
+        "claim": "Cart keys written without a TTL accumulate until Redis reaches maxmemory.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-CACHE-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "redis-cli INFO keyspace",
+      "redis-cli INFO memory",
+      "redis-cli --bigkeys",
+      "kubectl rollout restart deployment/cart-service -n cart"
+    ]
+  },
+  {
+    "id": "INC-012",
+    "split": "held_out",
+    "in_scope": true,
+    "user_input": "Since this morning customers can't add anything to their cart: POST /cart/items returns 500, but viewing existing carts still works. CartService logs say 'OOM command not allowed'. The Redis memory graph has been climbing steadily for about two weeks, since we refactored the cart storage code. What is going on and how do we fix it safely?",
+    "expected_retrieved_docs": [
+      "RUNBOOK-CACHE-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "OOM",
+          "service": "CartService"
+        }
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "CartService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "redis-cli --bigkeys"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "CartService's Redis instance (CartCache) is full: it is capped at 2048 MB with the noeviction policy, so it rejects writes while reads still succeed. The steady growth since the refactor matches the documented cause of cart keys losing their TTL (SET instead of SETEX), so abandoned carts are never removed.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "CartCache is capped at 2048 MB and uses noeviction, which rejects writes but still serves reads.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=OOM, service=CartService, maxmemory_mb=2048, maxmemory_policy=noeviction"
+      },
+      {
+        "claim": "CartService depends synchronously on CartCache.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> CartCache (depends_on, sync, timeout_ms=200)"
+      },
+      {
+        "claim": "A refactor that replaced SETEX with SET leaves cart keys without expiry, so memory grows over days to weeks.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-CACHE-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "redis-cli INFO keyspace",
+      "redis-cli INFO memory",
+      "redis-cli --bigkeys"
+    ]
+  },
+  {
+    "id": "INC-013",
+    "split": "adaptation",
+    "user_input": "redis.exceptions.TimeoutError: Timeout reading from socket\n    at CatalogService.cache.get_category_page()\nERROR CatalogService: cache error REDIS_TIMEOUT, falling back to database",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-CACHE-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "redis.exceptions.TimeoutError: Timeout reading from socket\n    at CatalogService.cache.get_category_page()\nERROR CatalogService: cache error REDIS_TIMEOUT, falling back to database"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "REDIS_TIMEOUT",
+          "service": "CatalogService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "redis-cli SLOWLOG GET 10"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "CatalogService's calls to CatalogCache are exceeding the 200 ms Redis socket timeout. Redis runs commands on a single thread, and the documented causes are a slow blocking command such as KEYS delaying all clients, or a cache stampede after popular keys expire together. The Redis slow log distinguishes the two.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The CatalogService Redis client gives up after 200 ms.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=REDIS_TIMEOUT, service=CatalogService, socket_timeout_ms=200"
+      },
+      {
+        "claim": "Slow commands such as KEYS block single-threaded Redis so other clients hit their 200 ms timeout.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-CACHE-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "redis-cli SLOWLOG GET 10",
+      "redis-cli INFO stats",
+      "kubectl rollout restart deployment/catalog-service -n catalog"
+    ]
+  },
+  {
+    "id": "INC-014",
+    "split": "held_out",
+    "user_input": "2026-11-14T12:00:00.418Z ERROR [CatalogService] [http-nio-8080-exec-41] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:00:00.421Z ERROR [CatalogService] [http-nio-8080-exec-17] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:00:00.425Z ERROR [CatalogService] [http-nio-8080-exec-88] cache error REDIS_TIMEOUT key=catalog:category:phones:page:1, falling back to database\n2026-11-14T12:00:30.902Z ERROR [CatalogService] [http-nio-8080-exec-17] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014\n    at CatalogService.search.products_by_filter()\n2026-11-14T12:05:00.377Z ERROR [CatalogService] [http-nio-8080-exec-03] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:05:30.611Z ERROR [CatalogService] [http-nio-8080-exec-56] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-CACHE-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T12:00:00.418Z ERROR [CatalogService] [http-nio-8080-exec-41] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:00:00.421Z ERROR [CatalogService] [http-nio-8080-exec-17] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:00:00.425Z ERROR [CatalogService] [http-nio-8080-exec-88] cache error REDIS_TIMEOUT key=catalog:category:phones:page:1, falling back to database\n2026-11-14T12:00:30.902Z ERROR [CatalogService] [http-nio-8080-exec-17] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014\n    at CatalogService.search.products_by_filter()\n2026-11-14T12:05:00.377Z ERROR [CatalogService] [http-nio-8080-exec-03] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:05:30.611Z ERROR [CatalogService] [http-nio-8080-exec-56] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "REDIS_TIMEOUT",
+          "service": "CatalogService"
+        }
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "CatalogService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "This is a cache stampede: the most popular category pages share a fixed 300-second TTL, so they expire together every 5 minutes (12:00, 12:05) and many concurrent requests miss the cache and rebuild the same pages from CatalogDB at once. The database saturates, and the resulting queries exceed the 30-second statement timeout (SQLSTATE 57014). The 57014 errors are a consequence, not the root cause.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "Category pages are cached with a fixed TTL of 300 seconds, matching the 5-minute spacing of the errors.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=REDIS_TIMEOUT, service=CatalogService, cache_ttl_seconds=300"
+      },
+      {
+        "claim": "Cache misses fall back to CatalogDB, a synchronous dependency with a 30000 ms timeout.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> CatalogDB (depends_on, sync, timeout_ms=30000), CatalogCache (depends_on, sync, timeout_ms=200)"
+      },
+      {
+        "claim": "Popular keys expiring together cause thousands of requests to rebuild the same page from the database at once.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-CACHE-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "redis-cli INFO stats",
+      "redis-cli SLOWLOG GET 10",
+      "kubectl rollout restart deployment/catalog-service -n catalog"
+    ]
+  },
+  {
+    "id": "INC-015",
+    "split": "adaptation",
+    "user_input": "2026-11-14T22:41:07.219Z ERROR [NotificationService] [notification-consumer-2] o.a.k.c.c.internals.ConsumerCoordinator - [Consumer clientId=notification-service-2, groupId=notification-service] Offset commit failed on partition order-events-3 at offset 551203\norg.apache.kafka.clients.consumer.CommitFailedException: Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member. This means that the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms.\n\tat org.apache.kafka.clients.consumer.internals.ConsumerCoordinator.sendOffsetCommitRequest(ConsumerCoordinator.java:1250)\n\tat org.apache.kafka.clients.consumer.KafkaConsumer.commitSync(KafkaConsumer.java:1508)\n\tat com.rootcause.notifications.OrderEventsConsumer.processBatch(OrderEventsConsumer.java:97)\n2026-11-14T22:41:07.402Z INFO  [NotificationService] [notification-consumer-2] Revoking previously assigned partitions [order-events-3, order-events-7]\n2026-11-14T22:41:09.880Z WARN  [NotificationService] [notification-consumer-2] EmailProviderClient.send() took 1043 ms (order_id=88123)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "RUNBOOK-KAFKA-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T22:41:07.219Z ERROR [NotificationService] [notification-consumer-2] o.a.k.c.c.internals.ConsumerCoordinator - [Consumer clientId=notification-service-2, groupId=notification-service] Offset commit failed on partition order-events-3 at offset 551203\norg.apache.kafka.clients.consumer.CommitFailedException: Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member. This means that the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms.\n\tat org.apache.kafka.clients.consumer.internals.ConsumerCoordinator.sendOffsetCommitRequest(ConsumerCoordinator.java:1250)\n\tat org.apache.kafka.clients.consumer.KafkaConsumer.commitSync(KafkaConsumer.java:1508)\n\tat com.rootcause.notifications.OrderEventsConsumer.processBatch(OrderEventsConsumer.java:97)\n2026-11-14T22:41:07.402Z INFO  [NotificationService] [notification-consumer-2] Revoking previously assigned partitions [order-events-3, order-events-7]\n2026-11-14T22:41:09.880Z WARN  [NotificationService] [notification-consumer-2] EmailProviderClient.send() took 1043 ms (order_id=88123)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "CommitFailedException",
+          "service": "NotificationService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group notification-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "NotificationService takes longer than max.poll.interval.ms (300000 ms) to process a batch: each batch has up to 500 records and each record calls the email provider, which is taking about 1 second per call. The consumer is removed from the group, its partitions are reassigned, and its offset commit fails, so the batch is reprocessed by another member and the group keeps rebalancing.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "The consumer fetches up to 500 records per poll and must call poll() again within 300000 ms.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=CommitFailedException, service=NotificationService, max_poll_records=500, max_poll_interval_ms=300000"
+      },
+      {
+        "claim": "Slow per-record email calls make a batch exceed max.poll.interval.ms, triggering a rebalance loop.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-KAFKA-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group notification-service",
+      "kubectl rollout restart deployment/notification-service -n messaging",
+      "kubectl rollout status deployment/notification-service -n messaging"
+    ]
+  },
+  {
+    "id": "INC-016",
+    "split": "held_out",
+    "in_scope": true,
+    "user_input": "Customers are receiving the same order confirmation email three or four times, and lag on the notification-service consumer group keeps growing. The group seems to rebalance every few minutes. The email provider's status page shows degraded latency today. Why is this happening?",
+    "expected_retrieved_docs": [
+      "RUNBOOK-KAFKA-01"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "NotificationService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group notification-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "The slow email provider makes NotificationService exceed the Kafka poll interval while processing a batch, so consumers are repeatedly removed from the group and their batches are reprocessed after each rebalance. Because emails are sent before offsets are committed and there is no idempotency check, every reprocessed batch sends the same emails again.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "NotificationService consumes order events from Kafka.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> Kafka (depends_on, async)"
+      },
+      {
+        "claim": "Batches that take longer than max.poll.interval.ms cause the consumer to be kicked out and the group to rebalance repeatedly.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-KAFKA-01#Root-Cause-Analysis"
+      },
+      {
+        "claim": "Emails are sent before offsets are committed without an idempotency check, so reprocessed batches send duplicates.",
+        "source_type": "RAG",
+        "source_ref": "RUNBOOK-KAFKA-01#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group notification-service",
+      "kubectl rollout restart deployment/notification-service -n messaging",
+      "kubectl rollout status deployment/notification-service -n messaging"
+    ]
+  },
+  {
+    "id": "INC-017",
+    "split": "adaptation",
+    "user_input": "2026-11-15T09:12:44.031Z ERROR [ShippingService] [shipping-consumer-1] o.a.k.c.c.KafkaConsumer - Failed to poll order-events\norg.apache.kafka.common.errors.RecordDeserializationException: Error deserializing key/value for partition order-events-7 at offset 884213. If needed, please seek past the record to continue consumption.\nCaused by: org.apache.avro.AvroTypeException: Found null, expecting string (field: shipping_address.postal_code)\n\tat org.apache.avro.io.ResolvingDecoder.doAction(ResolvingDecoder.java:308)\n\tat io.confluent.kafka.serializers.KafkaAvroDeserializer.deserialize(KafkaAvroDeserializer.java:59)\n2026-11-15T09:12:44.538Z ERROR [ShippingService] [shipping-consumer-1] o.a.k.c.c.KafkaConsumer - Failed to poll order-events (partition order-events-7, offset 884213)\n2026-11-15T09:12:45.041Z ERROR [ShippingService] [shipping-consumer-1] o.a.k.c.c.KafkaConsumer - Failed to poll order-events (partition order-events-7, offset 884213)",
+    "in_scope": true,
+    "expected_retrieved_docs": [
+      "PM-2026-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T09:12:44.031Z ERROR [ShippingService] [shipping-consumer-1] o.a.k.c.c.KafkaConsumer - Failed to poll order-events\norg.apache.kafka.common.errors.RecordDeserializationException: Error deserializing key/value for partition order-events-7 at offset 884213. If needed, please seek past the record to continue consumption.\nCaused by: org.apache.avro.AvroTypeException: Found null, expecting string (field: shipping_address.postal_code)\n\tat org.apache.avro.io.ResolvingDecoder.doAction(ResolvingDecoder.java:308)\n\tat io.confluent.kafka.serializers.KafkaAvroDeserializer.deserialize(KafkaAvroDeserializer.java:59)\n2026-11-15T09:12:44.538Z ERROR [ShippingService] [shipping-consumer-1] o.a.k.c.c.KafkaConsumer - Failed to poll order-events (partition order-events-7, offset 884213)\n2026-11-15T09:12:45.041Z ERROR [ShippingService] [shipping-consumer-1] o.a.k.c.c.KafkaConsumer - Failed to poll order-events (partition order-events-7, offset 884213)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "RecordDeserializationException",
+          "service": "ShippingService"
+        }
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "ShippingService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "A poison pill message is blocking partition 7 of order-events: the record at offset 884213 has a null shipping_address.postal_code, which ShippingService's schema does not allow. Deserialization fails inside poll(), before the message handler, so the record never reaches the dead letter queue and the consumer retries the same offset indefinitely. This matches the documented incident caused by an incompatible schema change in OrderService.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "ShippingService has a dead letter queue, order-events.dlq.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> code=RecordDeserializationException, service=ShippingService, dlq_topic=order-events.dlq"
+      },
+      {
+        "claim": "Deserialization errors occur in poll() before the handler, so they bypass the DLQ and the consumer retries the same record forever.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-02#Root-Cause-Analysis"
+      },
+      {
+        "claim": "The producer started sending null for a field the consumer's schema requires, after an incompatible schema change.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group shipping-service",
+      "kubectl rollout restart deployment/shipping-service -n fulfillment",
+      "kubectl rollout status deployment/shipping-service -n fulfillment"
+    ]
+  },
+  {
+    "id": "INC-018",
+    "split": "adaptation",
+    "in_scope": true,
+    "user_input": "After this morning's OrderService release, shipments stopped being created for some orders. Lag on the shipping-service consumer group is growing on partition 7 only; every other partition is at zero. We have a dead letter queue, but it is completely empty. What is blocking that partition?",
+    "expected_retrieved_docs": [
+      "PM-2026-02"
+    ],
+    "expected_tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "ShippingService"
+        }
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group shipping-service"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "A single malformed record produced by the new OrderService release is stuck at the head of partition 7. ShippingService fails to deserialize it, and because deserialization errors are not routed to the dead letter queue, the consumer keeps retrying the same offset, which blocks only that partition and leaves the DLQ empty.",
+    "expected_evidence_mapping": [
+      {
+        "claim": "ShippingService consumes order-events from Kafka.",
+        "source_type": "MCP",
+        "source_ref": "check_service_dependencies -> Kafka (depends_on, async)"
+      },
+      {
+        "claim": "Lag growing on a single partition while others stay near zero is the signature of a poison pill record.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-02#Common-Error-Signatures"
+      },
+      {
+        "claim": "Deserialization errors bypassed the DLQ handler, so the consumer retried the same record indefinitely.",
+        "source_type": "RAG",
+        "source_ref": "PM-2026-02#Root-Cause-Analysis"
+      }
+    ],
+    "ground_truth_remediation": [
+      "kafka-consumer-groups --describe --bootstrap-server kafka:9092 --group shipping-service",
+      "kubectl rollout restart deployment/shipping-service -n fulfillment",
+      "kubectl rollout status deployment/shipping-service -n fulfillment"
+    ]
+  },
+  {
+    "id": "INC-019",
+    "split": "adaptation",
+    "user_input": "2026-11-15T08:30:12.660Z ERROR [BillingService] [invoice-publisher-1] com.rabbitmq.client.ShutdownSignalException: channel error; protocol method: #method<channel.close>(reply-code=406, reply-text=PRECONDITION_FAILED - inequivalent arg 'x-message-ttl' for queue 'invoices' in vhost '/': received '60000' but current is '30000', class-id=50, method-id=10)\n\tat com.rabbitmq.client.impl.ChannelN.asyncShutdown(ChannelN.java:517)\n\tat com.rootcause.billing.InvoicePublisher.declareQueue(InvoicePublisher.java:41)",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T08:30:12.660Z ERROR [BillingService] [invoice-publisher-1] com.rabbitmq.client.ShutdownSignalException: channel error; protocol method: #method<channel.close>(reply-code=406, reply-text=PRECONDITION_FAILED - inequivalent arg 'x-message-ttl' for queue 'invoices' in vhost '/': received '60000' but current is '30000', class-id=50, method-id=10)\n\tat com.rabbitmq.client.impl.ChannelN.asyncShutdown(ChannelN.java:517)\n\tat com.rootcause.billing.InvoicePublisher.declareQueue(InvoicePublisher.java:41)"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "PRECONDITION_FAILED",
+          "service": "BillingService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
+    "expected_evidence_mapping": [
+      {
+        "claim": "PRECONDITION_FAILED is not registered for BillingService, and no runbook covers RabbitMQ.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> status=unknown_code"
+      }
+    ],
+    "ground_truth_remediation": [
+      "INSUFFICIENT_EVIDENCE: No internal runbook or error registry entry covers RabbitMQ PRECONDITION_FAILED errors or BillingService. Compare the queue arguments declared by InvoicePublisher with the existing 'invoices' queue and escalate to the team owning BillingService."
+    ]
+  },
+  {
+    "id": "INC-020",
+    "split": "held_out",
+    "user_input": "2026-11-15T10:47:03.215Z ERROR [SessionService] [session-writer-4] net.spy.memcached.OperationException: SERVER_ERROR out of memory storing object\n\tat net.spy.memcached.protocol.ascii.OperationImpl.handleError(OperationImpl.java:192)\n\tat com.rootcause.sessions.SessionStore.put(SessionStore.java:66)\n2026-11-15T10:47:03.219Z WARN  [SessionService] [session-writer-4] session not persisted, user will be logged out on next request",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
+    "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T10:47:03.215Z ERROR [SessionService] [session-writer-4] net.spy.memcached.OperationException: SERVER_ERROR out of memory storing object\n\tat net.spy.memcached.protocol.ascii.OperationImpl.handleError(OperationImpl.java:192)\n\tat com.rootcause.sessions.SessionStore.put(SessionStore.java:66)\n2026-11-15T10:47:03.219Z WARN  [SessionService] [session-writer-4] session not persisted, user will be logged out on next request"
+        }
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "SERVER_ERROR",
+          "service": "SessionService"
+        }
+      }
+    ],
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
+    "expected_evidence_mapping": [
+      {
+        "claim": "SessionService and the SERVER_ERROR code are not in the error registry, and no runbook covers Memcached.",
+        "source_type": "MCP",
+        "source_ref": "lookup_error_code -> status=unknown_code"
+      }
+    ],
+    "ground_truth_remediation": [
+      "INSUFFICIENT_EVIDENCE: SessionService and Memcached errors are not covered by the current knowledge base or tool registries; the Redis OOM runbook does not apply. Check Memcached memory and item size limits and escalate to the team owning SessionService."
+    ]
+  }
+]
