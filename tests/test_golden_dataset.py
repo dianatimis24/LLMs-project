@@ -208,3 +208,81 @@ def test_domain_b_dependency_evidence_matches_topology(entry):
             assert name in deps, f"{service} does not depend on {name}"
             assert deps[name]["call_type"] == call_type
             assert deps[name]["caller_timeout_ms"] == (int(timeout) if timeout else None)
+
+# ---------------------------------------------------------------------------
+# Domain C (Infrastructure: Kubernetes, memory, probes, disk): INC-021 to INC-030
+# ---------------------------------------------------------------------------
+DOMAIN_C_BATCH_PATH = Path("data/gd_batches/domain_c_infra.json")
+DOMAIN_C_IDS = [f"INC-{n:03d}" for n in range(21, 31)]
+DOMAIN_C_DOCS = {"RUNBOOK-INFRA-01", "RUNBOOK-INFRA-02", "RUNBOOK-INFRA-03"}
+
+DOMAIN_C_BATCH = json.loads(DOMAIN_C_BATCH_PATH.read_text(encoding="utf-8-sig"))
+
+
+def test_domain_c_has_expected_ids():
+    assert [e["id"] for e in DOMAIN_C_BATCH] == DOMAIN_C_IDS
+
+
+@pytest.mark.parametrize("entry", DOMAIN_C_BATCH, ids=lambda e: e["id"])
+def test_domain_c_entry_validates(entry):
+    GoldenDatasetEntry.model_validate(entry)
+
+
+def test_domain_c_split_is_60_40():
+    adaptation = sum(e["split"] == "adaptation" for e in DOMAIN_C_BATCH)
+    assert adaptation == 6 and len(DOMAIN_C_BATCH) - adaptation == 4
+
+
+def test_domain_c_has_one_or_two_negative_cases():
+    negatives = [e for e in DOMAIN_C_BATCH if not e["in_scope"]]
+    assert 1 <= len(negatives) <= 2
+    for e in negatives:
+        assert e["ground_truth_diagnosis"] == INSUFFICIENT_EVIDENCE
+        assert e["expected_retrieved_docs"] == []
+        assert all(r.startswith(f"{INSUFFICIENT_EVIDENCE}:") for r in e["ground_truth_remediation"])
+
+
+def test_domain_c_covers_every_domain_c_document():
+    cited = {d for e in DOMAIN_C_BATCH for d in e["expected_retrieved_docs"]}
+    assert cited == DOMAIN_C_DOCS
+
+
+def test_domain_c_mixes_logs_and_natural_language_queries():
+    logs = [e for e in DOMAIN_C_BATCH if _calls(e, "parse_stack_trace")]
+    queries = [e for e in DOMAIN_C_BATCH if not _calls(e, "parse_stack_trace")]
+    multi_line = [e for e in logs if e["user_input"].count("\n") >= 3]
+    assert len(logs) >= 3 and len(queries) >= 3 and len(multi_line) >= 2
+
+
+@pytest.mark.parametrize("entry", DOMAIN_C_BATCH, ids=lambda e: e["id"])
+def test_domain_c_parse_stack_trace_receives_full_input(entry):
+    for args in _calls(entry, "parse_stack_trace"):
+        assert args["raw_log"] == entry["user_input"]
+
+
+def test_domain_c_is_merged_into_golden_dataset():
+    merged = {e["id"]: e for e in json.loads(GD_PATH.read_text(encoding="utf-8-sig"))}
+    for entry in DOMAIN_C_BATCH:
+        assert merged.get(entry["id"]) == entry, (
+            f"{entry['id']} differs from data/golden_dataset.json; run eval/merge_golden_dataset.py"
+        )
+
+
+@pytest.mark.parametrize("entry", DOMAIN_C_BATCH, ids=lambda e: e["id"])
+def test_domain_c_lookup_evidence_matches_registry(entry):
+    registry = json.loads(ERROR_REGISTRY_PATH.read_text(encoding="utf-8"))
+    for item in entry["expected_evidence_mapping"]:
+        ref = item["source_ref"]
+        if item["source_type"] != "MCP" or not ref.startswith("lookup_error_code -> "):
+            continue
+        output = ref.split(" -> ", 1)[1]
+        if output == "status=unknown_code":
+            assert not entry["in_scope"]
+            for args in _calls(entry, "lookup_error_code"):
+                assert args["code"] not in registry.get(args["service"], {})
+            continue
+        values = dict(part.split("=", 1) for part in output.split(", "))
+        record = registry[values.pop("service")][values.pop("code")]
+        known = {**record["configured_limits"], **{k: record[k] for k in ("category", "severity", "owning_team")}}
+        for key, value in values.items():
+            assert str(known.get(key)) == value, f"{ref}: registry has {key}={known.get(key)}"
