@@ -351,3 +351,12 @@ def test_invalid_lexical_gate_raises(chroma_dir):
     with pytest.raises(ValueError):
         make(chroma_dir, lexical_gate="fuzzy")
 
+
+
+def test_default_dense_floor_is_the_calibrated_value():
+    from src.retriever import DEFAULT_MIN_DENSE_SIMILARITY
+
+    # Experiment 1 calibration on the adaptation split; see src/retriever.py docstring.
+    assert DEFAULT_MIN_DENSE_SIMILARITY == 0.74
+    r = Retriever("header", chroma_dir="unused", embed_fn=stub_embed)
+    assert r.min_dense_similarity == 0.74

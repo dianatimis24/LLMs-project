@@ -33,8 +33,15 @@ chunk: codes usually sit in "Common Error Signatures" while the cause is in
 eligible. ``lexical_gate="score"`` restores the
 score-only behaviour.
 
-Both defaults are provisional: calibrate them against the out-of-scope cases
-in ``data/golden_dataset.json`` once the real index is built.
+Calibration (Experiment 1, BAAI/bge-small-en-v1.5, 2026-11-19): with BGE almost
+any backend error scores above 0.5 against some runbook, so the original 0.5
+floor let 8/8 out-of-scope cases through. On the Golden Dataset *adaptation*
+split, the top dense similarity of in-scope cases was >= 0.775 (naive) and
+>= 0.746 (header), while out-of-scope cases stayed <= 0.733 and <= 0.727.
+0.74 separates both; on the *held_out* split it loses 0/12 in-scope cases and
+admits 0/4 out-of-scope cases. The margin is small (about 0.01 on the header
+collection), so recalibrate when runbooks or the embedding model change:
+run ``python -m eval.eval_retrieval`` and compare ``top_dense_similarity``.
 """
 
 from __future__ import annotations
@@ -60,8 +67,8 @@ RRF_K = 60
 DEFAULT_TOP_K = 3
 # Candidates pulled from each ranker before fusion / trimming to top_k.
 CANDIDATE_POOL = 20
-# Provisional defaults - see module docstring.
-DEFAULT_MIN_DENSE_SIMILARITY = 0.5
+# Calibrated on the Golden Dataset adaptation split - see module docstring.
+DEFAULT_MIN_DENSE_SIMILARITY = 0.74
 DEFAULT_MIN_BM25_SCORE = 3.0
 
 _TOKEN_RE = re.compile(r"[a-z0-9_]+")
