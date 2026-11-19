@@ -28,7 +28,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "RecommendationService pods are OOMKilled (exit 137) because -Xmx1024m lets the JVM heap alone use the entire 1Gi container limit. Metaspace, thread stacks and GC structures have no room, so the kernel sends SIGKILL before the JVM can throw an OutOfMemoryError.",
+    "ground_truth_diagnosis": "RecommendationService pods are OOMKilled (exit 137) because -Xmx1024m lets the JVM heap alone use the entire 1Gi container limit. Metaspace, thread stacks and GC structures have no room, so the kernel sends SIGKILL before the JVM can throw an OutOfMemoryError. Fix: replace -Xmx1024m with -XX:MaxRAMPercentage=75.0 in the deployment manifest.",
     "expected_evidence_mapping": [
       {
         "claim": "RecommendationService's OOMKilled code is registered as Container Memory (SEV-3, Recommendations-Team) with a 1024 MiB memory limit and a 1024 MB JVM max heap.",
@@ -45,50 +45,40 @@
       "kubectl describe pod recommendation-service-7c9d5b6f8-h2xkq -n recommendations",
       "kubectl logs recommendation-service-7c9d5b6f8-h2xkq -n recommendations --previous --tail=50",
       "kubectl top pod -n recommendations -l app=recommendation-service",
-      "Replace -Xmx1024m with -XX:MaxRAMPercentage=75.0 in the deployment manifest",
       "kubectl rollout status deployment/recommendation-service -n recommendations"
     ]
   },
   {
     "id": "INC-022",
     "split": "adaptation",
-    "user_input": "Our recommendation pods restart more often during peak hours, roughly every few hours, and the app logs show nothing before each restart. Memory climbs steadily as more users browse. What's causing this and how do we stop it?",
-    "in_scope": true,
-    "expected_retrieved_docs": [
-      "RUNBOOK-INFRA-01"
-    ],
+    "user_input": "Browser console on the product page: Uncaught Error: Hydration failed because the initial UI does not match what was rendered on the server. The product grid stays empty until a hard refresh. Only happens on Safari 17.",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
     "expected_tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "Browser console on the product page: Uncaught Error: Hydration failed because the initial UI does not match what was rendered on the server. The product grid stays empty until a hard refresh. Only happens on Safari 17."
+        }
+      },
       {
         "tool_name": "lookup_error_code",
         "arguments": {
-          "code": "OOMKilled",
-          "service": "RecommendationService"
-        }
-      },
-      {
-        "tool_name": "validate_remediation_command",
-        "arguments": {
-          "command": "kubectl get pods -n recommendations -l app=recommendation-service"
+          "code": "HydrationMismatch",
+          "service": "StorefrontWeb"
         }
       }
     ],
-    "ground_truth_diagnosis": "RecommendationService is restarting with OOMKilled because its user embedding cache has no size limit or eviction. Memory grows with the number of active users until it reaches the 1Gi container limit. Restarts tracking high-traffic periods point to the cache as the main cause.",
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
     "expected_evidence_mapping": [
       {
-        "claim": "The OOMKilled code for RecommendationService is registered with a 1024 MiB memory limit.",
+        "claim": "HydrationMismatch is not registered for StorefrontWeb, and no runbook covers client-side React rendering.",
         "source_type": "MCP",
-        "source_ref": "lookup_error_code -> code=OOMKilled, service=RecommendationService, memory_limit_mi=1024"
-      },
-      {
-        "claim": "The user embedding cache has no size limit or eviction, so memory grows with active users until the container is killed.",
-        "source_type": "RAG",
-        "source_ref": "RUNBOOK-INFRA-01#Root-Cause-Analysis"
+        "source_ref": "lookup_error_code -> status=unknown_code"
       }
     ],
     "ground_truth_remediation": [
-      "kubectl get pods -n recommendations -l app=recommendation-service",
-      "Limit the embedding cache size and add LRU eviction (for example 200,000 entries)",
-      "kubectl rollout status deployment/recommendation-service -n recommendations"
+      "INSUFFICIENT_EVIDENCE: No internal runbook or error registry entry covers client-side React hydration errors in StorefrontWeb. Reproduce in Safari 17 and escalate to the owning frontend team."
     ]
   },
   {
@@ -120,7 +110,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "InventoryService is in CrashLoopBackOff because the release loads the SKU catalog for about 45 seconds before its HTTP server listens. The liveness probe starts at 10 seconds and fails with connection refused, so the kubelet kills the container at about 25 seconds, and the next start fails the same way.",
+    "ground_truth_diagnosis": "InventoryService is in CrashLoopBackOff because the release loads the SKU catalog for about 45 seconds before its HTTP server listens. The liveness probe starts at 10 seconds and fails with connection refused, so the kubelet kills the container at about 25 seconds, and the next start fails the same way. Fix: add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5.",
     "expected_evidence_mapping": [
       {
         "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness probe of 10 s initial delay, 5 s period and failure threshold 3.",
@@ -137,7 +127,6 @@
       "kubectl describe pod inventory-service-6d9f8c7b5-x2k4p -n inventory",
       "kubectl logs inventory-service-6d9f8c7b5-x2k4p -n inventory --previous --tail=30",
       "kubectl rollout undo deployment/inventory-service -n inventory",
-      "Add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5",
       "kubectl get pods -n inventory -l app=inventory-service"
     ]
   },
@@ -170,7 +159,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "The InventoryService liveness probe on /healthz also queries InventoryDB. When the database is slow, every pod fails liveness at once, so the kubelet restarts them together and a database slowdown becomes a full outage.",
+    "ground_truth_diagnosis": "The InventoryService liveness probe on /healthz also queries InventoryDB. When the database is slow, every pod fails liveness at once, so the kubelet restarts them together and a database slowdown becomes a full outage. Fix: keep the liveness probe shallow (check only that the process responds) and move the InventoryDB check into the readiness probe.",
     "expected_evidence_mapping": [
       {
         "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness failure threshold of 3.",
@@ -185,8 +174,6 @@
     ],
     "ground_truth_remediation": [
       "kubectl get pods -n inventory -l app=inventory-service",
-      "Keep the liveness probe shallow: check only that the process responds",
-      "Move the InventoryDB check into the readiness probe",
       "kubectl rollout status deployment/inventory-service -n inventory"
     ]
   },
@@ -262,7 +249,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "ImageService is filling the node's ephemeral storage with temporary files from failed resizes. Because ImageService has no ephemeral-storage limits, one pod can consume the whole node disk, so the kubelet evicts pods across the node, including unrelated checkout pods.",
+    "ground_truth_diagnosis": "ImageService is filling the node's ephemeral storage with temporary files from failed resizes. Because ImageService has no ephemeral-storage limits, one pod can consume the whole node disk, so the kubelet evicts pods across the node, including unrelated checkout pods. Fix: set ephemeral-storage requests and limits on image-service (request 2Gi, limit 4Gi) and delete temporary files in a finally block so failed resizes do not leak them.",
     "expected_evidence_mapping": [
       {
         "claim": "The Evicted code for ImageService is registered as Node Resource Pressure with a 10% nodefs eviction threshold.",
@@ -277,51 +264,34 @@
     ],
     "ground_truth_remediation": [
       "kubectl describe node worker-node-3",
-      "kubectl get pods -n media --field-selector=status.phase=Failed",
-      "Set ephemeral-storage requests and limits on image-service (request 2Gi, limit 4Gi)",
-      "Delete temporary files in a finally block so failed resizes do not leak them"
+      "kubectl get pods -n media --field-selector=status.phase=Failed"
     ]
   },
   {
     "id": "INC-027",
     "split": "held_out",
-    "user_input": "Why do recommendation pods keep dying with exit code 137 and no error in the app logs? They restart every few hours, and the previous container's logs just stop. Is this a memory problem?",
-    "in_scope": true,
-    "expected_retrieved_docs": [
-      "RUNBOOK-INFRA-01"
-    ],
+    "user_input": "Product images on the category pages return 403 AccessDenied from the image CDN since about 09:00 UTC. The bucket policy was not changed and the origin files are still there.",
+    "in_scope": false,
+    "expected_retrieved_docs": [],
     "expected_tool_calls": [
       {
         "tool_name": "lookup_error_code",
         "arguments": {
-          "code": "OOMKilled",
-          "service": "RecommendationService"
-        }
-      },
-      {
-        "tool_name": "validate_remediation_command",
-        "arguments": {
-          "command": "kubectl top pod -n recommendations -l app=recommendation-service"
+          "code": "AccessDenied",
+          "service": "ImageCDN"
         }
       }
     ],
-    "ground_truth_diagnosis": "RecommendationService is OOMKilled because its JVM heap is set to -Xmx1024m, which equals the full 1Gi container limit. Heap plus non-heap memory exceeds the limit, so the kernel sends SIGKILL, and no Java error is logged.",
+    "ground_truth_diagnosis": "INSUFFICIENT_EVIDENCE",
     "expected_evidence_mapping": [
       {
-        "claim": "The OOMKilled code for RecommendationService is registered with a 1024 MiB memory limit and a 1024 MB JVM max heap.",
+        "claim": "AccessDenied is not registered for ImageCDN, and no runbook covers CDN origin access.",
         "source_type": "MCP",
-        "source_ref": "lookup_error_code -> code=OOMKilled, service=RecommendationService, memory_limit_mi=1024, jvm_max_heap_mb=1024"
-      },
-      {
-        "claim": "A heap sized to the full container limit leaves no room for non-heap JVM memory, so SIGKILL arrives before any Java error is logged.",
-        "source_type": "RAG",
-        "source_ref": "RUNBOOK-INFRA-01#Root-Cause-Analysis"
+        "source_ref": "lookup_error_code -> status=unknown_code"
       }
     ],
     "ground_truth_remediation": [
-      "kubectl top pod -n recommendations -l app=recommendation-service",
-      "Replace -Xmx1024m with -XX:MaxRAMPercentage=75.0 in the deployment manifest",
-      "kubectl rollout status deployment/recommendation-service -n recommendations"
+      "INSUFFICIENT_EVIDENCE: No internal runbook or error registry entry covers ImageCDN access errors. Check the CDN origin access policy manually and escalate to the team that owns the image CDN."
     ]
   },
   {
@@ -353,7 +323,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "The liveness probe fires before InventoryService finishes startup. The catalog load takes about 45 seconds, but the probe kills the container at about 25 seconds with connection refused. Exit 143 is the kubelet's SIGTERM from the probe failure, not an application crash.",
+    "ground_truth_diagnosis": "The liveness probe fires before InventoryService finishes startup. The catalog load takes about 45 seconds, but the probe kills the container at about 25 seconds with connection refused. Exit 143 is the kubelet's SIGTERM from the probe failure, not an application crash. Fix: add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5.",
     "expected_evidence_mapping": [
       {
         "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness initial delay of 10 seconds and a failure threshold of 3.",
@@ -369,7 +339,6 @@
     "ground_truth_remediation": [
       "kubectl logs inventory-service-6d9f8c7b5-x2k4p -n inventory --previous --tail=30",
       "kubectl describe pod inventory-service-6d9f8c7b5-x2k4p -n inventory",
-      "Add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5",
       "kubectl get pods -n inventory -l app=inventory-service"
     ]
   },
@@ -396,7 +365,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "ImageService temporary files from failed resizes are filling the node disk. Restarting image-service gives each new pod an empty /tmp and frees the old files, which relieves DiskPressure. Temp-file cleanup and ephemeral-storage limits are needed to prevent a repeat.",
+    "ground_truth_diagnosis": "ImageService temporary files from failed resizes are filling the node disk. Restarting image-service gives each new pod an empty /tmp and frees the old files, which relieves DiskPressure. Temp-file cleanup (delete temporary files in a finally block) and ephemeral-storage limits (requests and limits on image-service) are needed to prevent a repeat.",
     "expected_evidence_mapping": [
       {
         "claim": "The Evicted code for ImageService is registered with a 10% nodefs eviction threshold.",
@@ -411,9 +380,7 @@
     ],
     "ground_truth_remediation": [
       "kubectl rollout restart deployment/image-service -n media",
-      "kubectl rollout status deployment/image-service -n media",
-      "Delete temporary files in a finally block",
-      "Set ephemeral-storage requests and limits on image-service"
+      "kubectl rollout status deployment/image-service -n media"
     ]
   },
   {
@@ -439,7 +406,7 @@
         }
       }
     ],
-    "ground_truth_diagnosis": "The new InventoryService release loads the catalog for about 45 seconds, but its liveness probe starts at 10 seconds and kills the container at about 25 seconds, so pods never become ready. Roll back the release first, then add a startupProbe and keep liveness shallow.",
+    "ground_truth_diagnosis": "The new InventoryService release loads the catalog for about 45 seconds, but its liveness probe starts at 10 seconds and kills the container at about 25 seconds, so pods never become ready. Roll back the release first, then add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5 and keep liveness shallow.",
     "expected_evidence_mapping": [
       {
         "claim": "The CrashLoopBackOff code for InventoryService is registered with a liveness initial delay of 10 seconds and a failure threshold of 3.",
@@ -455,7 +422,6 @@
     "ground_truth_remediation": [
       "kubectl rollout undo deployment/inventory-service -n inventory",
       "kubectl rollout status deployment/inventory-service -n inventory",
-      "Add a startupProbe on /healthz with failureThreshold 30 and periodSeconds 5",
       "kubectl get pods -n inventory -l app=inventory-service"
     ]
   }
