@@ -16,6 +16,7 @@ from src.retriever import (
     RetrievedChunk,
     Retriever,
     RetrieverError,
+    extract_code_tokens,
     rrf_fuse,
     tokenize,
 )
@@ -300,3 +301,62 @@ def test_newly_ingested_runbook_is_found_without_restart(chroma_dir):
     )
     results = r.search_bm25("etcd quorum")
     assert results and results[0].doc_id == "RUNBOOK-NEW-01"
+
+
+# ---------------------------------------------------------------------------
+# Lexical gate: only shared error codes count as lexical evidence
+# ---------------------------------------------------------------------------
+
+
+def test_extract_code_tokens_keeps_codes_and_error_classes():
+    text = (
+        "2026-11-15T09:12:44.031Z ERROR [OrderService] SQLSTATE 53300 deadlock 40P01 "
+        "StatusCode.DEADLINE_EXCEEDED org.apache.kafka.clients.consumer.CommitFailedException "
+        "Reason: OOMKilled Exit Code: 137 HTTP 502 CrashLoopBackOff"
+    )
+    assert extract_code_tokens(text) == {
+        "53300", "40p01", "deadline_exceeded", "commitfailedexception",
+        "oomkilled", "137", "502", "crashloopbackoff", "statuscode",
+    }
+
+
+def test_extract_code_tokens_drops_noise_and_service_names():
+    text = (
+        "2026-11-15T10:47:03.215Z WARN [SessionService] took 1043 ms at 10.2.7.31:8443 "
+        "(SessionStore.java:66) offset 884213 pid=18422 id 7f3a9c21 in 2026"
+    )
+    assert extract_code_tokens(text) == set()
+
+
+def test_hybrid_ignores_long_log_sharing_only_ordinary_words(chroma_dir):
+    # Shares "connection", "memory", "limit", "exceeded"... with the runbooks but no error code.
+    log = (
+        "2026-11-15T10:47:03.215Z ERROR [SessionService] SERVER_ERROR out of memory storing object: "
+        "connection to the session cache exceeded its memory limit, the pool is full"
+    )
+    r = make(chroma_dir, min_dense_similarity=2.0)  # isolate the lexical path
+    assert r.search_bm25(log, min_bm25_score=0.0)  # raw BM25 does match ordinary words
+    assert r.search_hybrid(log) == []
+
+
+def test_hybrid_score_gate_restores_score_only_behaviour(chroma_dir):
+    log = "connection pool memory limit exceeded exceeded exceeded"
+    code = make(chroma_dir, min_dense_similarity=2.0, min_bm25_score=0.1)
+    score = make(chroma_dir, min_dense_similarity=2.0, min_bm25_score=0.1, lexical_gate="score")
+    assert code.search_hybrid(log) == []
+    assert score.search_hybrid(log)
+
+
+def test_invalid_lexical_gate_raises(chroma_dir):
+    with pytest.raises(ValueError):
+        make(chroma_dir, lexical_gate="fuzzy")
+
+
+
+def test_default_dense_floor_is_the_calibrated_value():
+    from src.retriever import DEFAULT_MIN_DENSE_SIMILARITY
+
+    # Experiment 1 calibration on the adaptation split; see src/retriever.py docstring.
+    assert DEFAULT_MIN_DENSE_SIMILARITY == 0.74
+    r = Retriever("header", chroma_dir="unused", embed_fn=stub_embed)
+    assert r.min_dense_similarity == 0.74

@@ -36,18 +36,20 @@ RUNBOOK & POST-MORTEM CONVENTIONS
    - Post-mortems use the same four sections: affected service / what was observed /
      what caused it / what fixed it plus follow-ups.
 
-3. SECTION ANCHORS
-   Anchor = text of the deepest header ("###" if present, else "##"), lowercased,
-   with everything except letters, digits, spaces, and hyphens removed,
-   and spaces replaced by hyphens (same as GitHub heading links).
-     "### Connection Leak in Order Worker" -> connection-leak-in-order-worker
-     "## Root Cause Analysis"              -> root-cause-analysis
+3. SECTION ANCHORS (computed by normalize_section_anchor in src/ingest.py)
+   Header-aware ingestion splits on "#" and "##" only, so the anchor is the "##"
+   section a chunk belongs to. Punctuation is removed, case is kept, and spaces
+   become hyphens:
+     "## Root Cause Analysis"     -> Root-Cause-Analysis
+     "## Playbook Remediation"    -> Playbook-Remediation
+   "###" subsections stay inside their "##" section's chunk and are not anchors.
 
 4. CITATIONS
-   Format: <DOC_ID>#<anchor>    e.g. RUNBOOK-PG-01#connection-leak-in-order-worker
-   Golden Dataset expected_evidence_mapping: [Doc: RUNBOOK-PG-01#connection-leak-in-order-worker]
-   Ingestion stores doc_id, doc_type, section, subsection, anchor, and citation
-   on every chunk; the output guardrail matches citations against it exactly.
+   Format: <DOC_ID>#<anchor>    e.g. RUNBOOK-PG-01#Root-Cause-Analysis
+   Golden Dataset expected_evidence_mapping (source_type RAG): RUNBOOK-PG-01#Root-Cause-Analysis
+   Ingestion stores doc_id and section_anchor on every chunk; the retriever
+   returns them as <doc_id>#<section_anchor>, and citations must match exactly.
+   This front matter and these comments are stripped before chunking.
 -->
 
 # <Short Title of the Failure Scenario>

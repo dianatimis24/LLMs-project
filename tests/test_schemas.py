@@ -55,7 +55,7 @@ def in_scope_entry(**overrides) -> dict:
             {
                 "claim": "Unclosed async sessions leak connections",
                 "source_type": "RAG",
-                "source_ref": "RUNBOOK-PG-01#connection-leak-in-order-worker",
+                "source_ref": "RUNBOOK-PG-01#Root-Cause-Analysis",
             },
         ],
         "ground_truth_remediation": ["Close sessions in the order worker"],
@@ -227,7 +227,7 @@ def test_tool_input_models_cover_all_tools():
 @pytest.mark.parametrize(
     "source_type, source_ref",
     [
-        ("RAG", "RUNBOOK-PG-01#connection-leak-in-order-worker"),
+        ("RAG", "RUNBOOK-PG-01#Root-Cause-Analysis"),
         ("RAG", "PM-2026-04.md#Root-Cause"),
         ("MCP", "lookup_error_code -> SQLSTATE 53300"),
         ("MCP", "check_service_dependencies"),

@@ -16,12 +16,32 @@ scores only encode rank (max ~2/61) so they cannot be thresholded meaningfully;
 instead a chunk is kept only if it is *independently* relevant:
 
 * its dense cosine similarity is ``>= min_dense_similarity``, or
-* (hybrid / bm25 only) its BM25 score is ``>= min_bm25_score``. This lets an
-  exact error code (``SQLSTATE 53300``, ``DEADLINE_EXCEEDED``) through even
+* (hybrid only) its BM25 score is ``>= min_bm25_score`` **and** its document
+  contains at least one *code token* of the query (see ``extract_code_tokens``). This lets
+  an exact error code (``SQLSTATE 53300``, ``DEADLINE_EXCEEDED``) through even
   when the query has too little semantic content for the embedder.
 
-Both defaults are provisional: calibrate them against the out-of-scope cases
-in ``data/golden_dataset.json`` once the real index is built.
+Why the code-token condition: long logs share many ordinary words with the
+runbooks (timestamp fragments, ``java``, ``warn``, ``memory``), so their raw
+BM25 scores reach 8-46 even for errors no runbook covers. Measured on the
+Golden Dataset, a score floor alone let 8/8 out-of-scope cases through, while
+requiring a shared code token lets 0/8 through and still matches the right
+document lexically for 27/32 in-scope cases (the rest are natural-language
+questions, handled by dense search). The check is per *document*, not per
+chunk: codes usually sit in "Common Error Signatures" while the cause is in
+"Root Cause Analysis", and both sections of the matching runbook should stay
+eligible. ``lexical_gate="score"`` restores the
+score-only behaviour.
+
+Calibration (Experiment 1, BAAI/bge-small-en-v1.5, 2026-11-19): with BGE almost
+any backend error scores above 0.5 against some runbook, so the original 0.5
+floor let 8/8 out-of-scope cases through. On the Golden Dataset *adaptation*
+split, the top dense similarity of in-scope cases was >= 0.775 (naive) and
+>= 0.746 (header), while out-of-scope cases stayed <= 0.733 and <= 0.727.
+0.74 separates both; on the *held_out* split it loses 0/12 in-scope cases and
+admits 0/4 out-of-scope cases. The margin is small (about 0.01 on the header
+collection), so recalibrate when runbooks or the embedding model change:
+run ``python -m eval.eval_retrieval`` and compare ``top_dense_similarity``.
 """
 
 from __future__ import annotations
@@ -47,11 +67,40 @@ RRF_K = 60
 DEFAULT_TOP_K = 3
 # Candidates pulled from each ranker before fusion / trimming to top_k.
 CANDIDATE_POOL = 20
-# Provisional defaults - see module docstring.
-DEFAULT_MIN_DENSE_SIMILARITY = 0.5
+# Calibrated on the Golden Dataset adaptation split - see module docstring.
+DEFAULT_MIN_DENSE_SIMILARITY = 0.74
 DEFAULT_MIN_BM25_SCORE = 3.0
 
 _TOKEN_RE = re.compile(r"[a-z0-9_]+")
+
+# Fragments of a log line that look like codes but identify nothing about the
+# failure: timestamps, IPs and ports, hex ids, durations and sizes, source line
+# references, offsets and pids.
+_CODE_NOISE = [
+    re.compile(p, re.IGNORECASE)
+    for p in (
+        r"\d{4}-\d{2}-\d{2}[T ][\d:.,]+Z?",
+        r"\b\d{2}:\d{2}:\d{2}(?:[.,]\d+)?\b",
+        r"\b0x[0-9a-f]+\b",
+        r"\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b",
+        r"\b[0-9a-f]{8,}\b",
+        r"\b\d+(?:\.\d+)?\s?(?:ms|s|kb|mb|gb|mi|gi|%)\b",
+        r"\(\w+\.(?:java|py|go|js|ts|kt|rb):\d+\)",
+        r"\bline \d+",
+        r"\boffset \d+",
+        r"\bpid[ =]\d+",
+    )
+]
+# Error codes and error class names: SNAKE_CASE identifiers (DEADLINE_EXCEEDED),
+# mixed letters/digits (40P01, OOMKilled), CamelCase names
+# (CommitFailedException, CrashLoopBackOff) and 3-5 digit codes (53300, 137, 502).
+_CODE_RE = re.compile(
+    r"\b(?:[A-Z][A-Z0-9]*_[A-Z0-9_]+"
+    r"|[A-Z0-9]*\d[A-Z0-9]*[A-Z][A-Z0-9]*"
+    r"|[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+"
+    r"|[A-Z]{2,}[a-z]+(?:[A-Z][a-z0-9]*)*"
+    r"|\d{3,5})\b"
+)
 
 
 class RetrieverError(RuntimeError):
@@ -95,6 +144,26 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
+def extract_code_tokens(text: str) -> set[str]:
+    """
+    Lowercased error codes and error class names found in ``text``.
+
+    Noise that merely looks like a code (timestamps, years, IPs, hex ids,
+    durations, line numbers) is removed first. Service names (``OrderService``)
+    are excluded: they say *where* something failed, not *what* failed, and
+    out-of-scope errors often happen in known services.
+    """
+    for pattern in _CODE_NOISE:
+        text = pattern.sub(" ", text)
+    tokens = set()
+    for match in _CODE_RE.findall(text):
+        low = match.lower()
+        if re.fullmatch(r"(19|20)\d\d", low) or low.endswith("service"):
+            continue
+        tokens.add(low)
+    return tokens
+
+
 def rrf_fuse(rankings: Sequence[Sequence[str]], k: int = RRF_K) -> dict[str, float]:
     """
     Reciprocal Rank Fusion: ``score(d) = sum_r 1 / (k + rank_r(d))`` with
@@ -132,6 +201,7 @@ class Retriever:
         embed_fn: EmbedFn | None = None,
         min_dense_similarity: float = DEFAULT_MIN_DENSE_SIMILARITY,
         min_bm25_score: float | None = DEFAULT_MIN_BM25_SCORE,
+        lexical_gate: Literal["code", "score"] = "code",
         candidate_pool: int = CANDIDATE_POOL,
         rrf_k: int = RRF_K,
     ) -> None:
@@ -143,11 +213,15 @@ class Retriever:
         self.min_bm25_score = min_bm25_score
         self.candidate_pool = candidate_pool
         self.rrf_k = rrf_k
+        if lexical_gate not in ("code", "score"):
+            raise ValueError(f"Unsupported lexical_gate: {lexical_gate!r}. Expected 'code' or 'score'.")
+        self.lexical_gate = lexical_gate
         self._embed_fn: EmbedFn = embed_fn or embed_texts
         self._collection = collection
 
         self._bm25: BM25Okapi | None = None
         self._chunks: dict[str, RetrievedChunk] = {}
+        self._doc_tokens: dict[str, set[str]] = {}
         self._bm25_ids: list[str] = []
         self._indexed_count = -1
 
@@ -191,6 +265,9 @@ class Retriever:
             for cid, text, meta in rows
         }
         self._bm25_ids = [cid for cid, _, _ in rows]
+        self._doc_tokens = defaultdict(set)
+        for cid, text, _ in rows:
+            self._doc_tokens[self._chunks[cid].doc_id].update(tokenize(text or ""))
         corpus = [tokenize(text or "") for _, text, _ in rows]
         self._bm25 = BM25Okapi(corpus) if any(corpus) else None
         self._indexed_count = count
@@ -311,10 +388,14 @@ class Retriever:
         fused = rrf_fuse(
             [[c.chunk_id for c in dense], [c.chunk_id for c in lexical]], k=self.rrf_k
         )
+        code_tokens = extract_code_tokens(query) if self.lexical_gate == "code" else set()
         kept: list[RetrievedChunk] = []
         for cid, rrf in fused.items():
             chunk = merged[cid]
-            if _is_relevant(chunk.dense_similarity, chunk.bm25_score, d_floor, b_floor):
+            bm25 = chunk.bm25_score
+            if self.lexical_gate == "code" and not (code_tokens & self._doc_tokens.get(chunk.doc_id, set())):
+                bm25 = None  # document shares no error code with the query: overlap alone is not evidence
+            if _is_relevant(chunk.dense_similarity, bm25, d_floor, b_floor):
                 chunk.rrf_score = rrf
                 chunk.score = rrf
                 kept.append(chunk)
