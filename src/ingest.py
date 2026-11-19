@@ -249,14 +249,31 @@ def chunk_markdown_naive(
     return chunks
 
 
+_FRONT_MATTER_RE = re.compile(r"\A\ufeff?---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def strip_non_content(content: str) -> str:
+    """
+    Remove the YAML front matter and HTML comments from a runbook before chunking.
+
+    Both are metadata for authors and tooling (doc_id, services, error_codes,
+    template instructions), not runbook content. Left in, the front matter
+    became its own chunk with anchor 'Overview' in every document, adding
+    retrievable noise that matches error codes and service names.
+    """
+    content = _FRONT_MATTER_RE.sub("", content, count=1)
+    return _HTML_COMMENT_RE.sub("", content).lstrip()
+
+
 def chunk_file(
     file_path: Path | str,
     chunk_mode: ChunkMode = "header",
 ) -> list[DocumentChunk]:
-    """Load a Markdown file from disk and split it using the requested chunk_mode."""
+    """Load a Markdown file from disk, strip non-content, and split it using chunk_mode."""
     path = Path(file_path)
     doc_id = path.stem
-    content = path.read_text(encoding="utf-8")
+    content = strip_non_content(path.read_text(encoding="utf-8"))
 
     if chunk_mode == "header":
         return chunk_markdown_header_aware(content=content, doc_id=doc_id)

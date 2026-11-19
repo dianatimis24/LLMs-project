@@ -235,3 +235,59 @@ def test_run_cli_single_mode_maps_correctly(monkeypatch):
     run_cli(["--dir", "data/runbooks", "--mode", "naive"])
 
     assert captured_kwargs["modes"] == ("naive",)
+
+# ---------------------------------------------------------------------------
+# Front matter and HTML comments are not indexed
+# ---------------------------------------------------------------------------
+from src.ingest import strip_non_content  # noqa: E402
+
+RUNBOOK_WITH_METADATA = """---
+doc_id: RUNBOOK-PG-01
+services: [OrderService]
+error_codes: ["53300"]
+---
+
+<!-- template instructions for authors -->
+
+# PostgreSQL Connection Pool Exhaustion
+
+## Service Overview
+
+OrderService writes to OrdersDB.
+
+## Root Cause Analysis
+
+Leaked connections.<!-- inline note -->
+"""
+
+
+def test_strip_non_content_removes_front_matter_and_comments():
+    cleaned = strip_non_content(RUNBOOK_WITH_METADATA)
+    assert cleaned.startswith("# PostgreSQL Connection Pool Exhaustion")
+    assert "doc_id" not in cleaned and "<!--" not in cleaned
+    assert "Leaked connections." in cleaned
+
+
+def test_strip_non_content_keeps_documents_without_front_matter():
+    text = "# Title\n\n## Section\n\n---\n\nA horizontal rule is content.\n"
+    assert strip_non_content(text) == text
+
+
+def test_chunk_file_does_not_index_front_matter(tmp_path: Path):
+    path = tmp_path / "RUNBOOK-PG-01.md"
+    path.write_text(RUNBOOK_WITH_METADATA, encoding="utf-8")
+    for mode in ("header", "naive"):
+        chunks = chunk_file(path, chunk_mode=mode)
+        assert chunks
+        assert all("doc_id:" not in c.text and "<!--" not in c.text for c in chunks)
+    anchors = {c.metadata["section_anchor"] for c in chunk_file(path, chunk_mode="header")}
+    assert "Overview" not in anchors
+    assert {"Service-Overview", "Root-Cause-Analysis"} <= anchors
+
+
+def test_real_runbooks_have_no_front_matter_chunk():
+    for path in Path("data/runbooks").glob("*.md"):
+        if path.name.startswith("_"):
+            continue
+        anchors = {c.metadata["section_anchor"] for c in chunk_file(path, chunk_mode="header")}
+        assert "Overview" not in anchors, path.name
