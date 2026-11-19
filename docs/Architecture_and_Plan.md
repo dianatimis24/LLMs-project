@@ -99,7 +99,7 @@ Each entry in the Golden Dataset adheres to the following strict JSON schema:
 - `expected_retrieved_docs`: List of target document IDs that the RAG pipeline must retrieve (empty for negative cases).
 - `expected_tool_calls`: Ordered list of MCP tool names and arguments the agent should invoke.
 - `ground_truth_diagnosis`: Concise explanation of the root cause (or `INSUFFICIENT_EVIDENCE`).
-- `expected_evidence_mapping`: Explicit mapping showing which claim of the diagnosis comes from RAG (e.g., `[Doc: RUNBOOK-PG-01#connection-leak-in-order-worker]`) vs. MCP tool output (e.g., `[Tool: lookup_error_code -> SQLSTATE 53300]`).
+- `expected_evidence_mapping`: Explicit mapping showing which claim of the diagnosis comes from RAG (e.g., `[Doc: RUNBOOK-PG-01#Root-Cause-Analysis]`) vs. MCP tool output (e.g., `[Tool: lookup_error_code -> SQLSTATE 53300]`).
 - `ground_truth_remediation`: Verified step-by-step fix or CLI command.
 
 ### Creation Methodology
@@ -116,7 +116,7 @@ Technical documentation and stack traces fail under naive fixed-size character c
 
 | Component | Design Choice | Rationale & Planned Comparison Experiment |
 |---|---|---|
-| Chunking Strategy | Markdown-Header Aware Splitting (`MarkdownHeaderTextSplitter` + recursive fallback at 512 tokens, 64-token overlap) | Preserves logical sections (`## Symptoms`, `## Resolution`) intact so code blocks and remediation steps are never severed from their parent error heading. Each chunk stores its `doc_id` and section anchor so citations can point to a specific section. **Experiment:** Benchmark Header-Aware splitting against Naive Fixed-Size (500 chars) chunking on Retrieval Recall@3. |
+| Chunking Strategy | Markdown-Header Aware Splitting (`MarkdownHeaderTextSplitter` + recursive fallback at 512 tokens, 64-token overlap) | Preserves logical sections (`## Common Error Signatures`, `## Root Cause Analysis`, `## Playbook Remediation`) intact so code blocks and remediation steps are never severed from their parent error heading. Each chunk stores its `doc_id` and section anchor so citations can point to a specific section. **Experiment:** Benchmark Header-Aware splitting against Naive Fixed-Size (500 chars) chunking on Retrieval Recall@3. |
 | Embedding Model | `BAAI/bge-small-en-v1.5` (384 dimensions) | Strong performance-to-size ratio on the MTEB leaderboard. Runs locally on CPU in milliseconds, requires zero API costs, and leaves GPU VRAM free for SLM inference. |
 | Vector Database | ChromaDB (Persistent Local Mode) | Stores embeddings directly on disk without requiring heavy container orchestration, making local development and CI evaluation reproducible across all 4 team members' machines. |
 | Retrieval Approach | Hybrid Search (Dense Vector Search + BM25 Lexical Search via Reciprocal Rank Fusion) | Dense embeddings capture symptom descriptions ("database is hanging"), while BM25 captures exact error codes and exception names (`DeadlockDetectedException`). **Experiment:** Compare Dense-Only RAG vs. Hybrid RAG (Dense + BM25) against the Golden Dataset. |
@@ -168,7 +168,7 @@ Below is a sample of the initial debugging cases we will evaluate the agent on, 
    - **Retrieved Evidence (RAG):**
      - Hybrid search queries `"OrderService SQLSTATE 53300 connection slots"` and retrieves `RUNBOOK-PG-01.md` (*Section: Connection Leak in Order Worker*), which documents that unclosed transactions in async workers exhaust the 100-connection pool during traffic spikes.
    - **Draft Output (blocked):** *"OrderService has exhausted its 100-connection PostgreSQL limit, caused by unclosed async database sessions accumulating during retry loops."* — The claim "during retry loops" appears in no retrieved chunk or tool output, so the guardrail blocks it and requests re-verification.
-   - **Grounded Root Cause Output (after re-verification):** *"OrderService has exhausted its 100-connection PostgreSQL limit (`[Tool: lookup_error_code=53300]`). This matches the documented pattern of unclosed transactions in async order workers exhausting the pool during traffic spikes (`[RAG: RUNBOOK-PG-01#connection-leak-in-order-worker]`)."*
+   - **Grounded Root Cause Output (after re-verification):** *"OrderService has exhausted its 100-connection PostgreSQL limit (`[Tool: lookup_error_code=53300]`). This matches the documented pattern of unclosed transactions in async order workers exhausting the pool during traffic spikes (`[RAG: RUNBOOK-PG-01#Root-Cause-Analysis]`)."*
    - **Confidence note:** Limit exhaustion is verified by tool output; the leak mechanism is consistent with a historical pattern and should be confirmed with `pg_stat_activity`.
 
 2. **Case 2: Cascading Upstream Timeout (`INC-004`)**
@@ -178,7 +178,7 @@ Below is a sample of the initial debugging cases we will evaluate the agent on, 
      - `check_service_dependencies("PaymentGateway")` traverses `topology.json` and returns: `["FraudDetectionService (sync, caller_timeout=2000ms)", "LedgerDB (async)"]`.
    - **Retrieved Evidence (RAG):**
      - Retrieves post-mortem `PM-2026-04.md`, detailing how cold-start latency in `FraudDetectionService` caused `PaymentGateway` to exceed its 2-second gRPC deadline.
-   - **Grounded Root Cause Output:** *"The gRPC deadline exceeded in `PaymentGateway.Authorize()` is most likely a cascading timeout: `FraudDetectionService` is a synchronous dependency called with a 2000ms deadline (`[Tool: check_service_dependencies]`), and a prior incident traced the same error to FraudDetectionService cold-start latency (`[RAG: PM-2026-04#cold-start-latency-in-new-pods]`)."*
+   - **Grounded Root Cause Output:** *"The gRPC deadline exceeded in `PaymentGateway.Authorize()` is most likely a cascading timeout: `FraudDetectionService` is a synchronous dependency called with a 2000ms deadline (`[Tool: check_service_dependencies]`), and a prior incident traced the same error to FraudDetectionService cold-start latency (`[RAG: PM-2026-04#Root-Cause-Analysis]`)."*
    - **Confidence note:** The dependency and timeout are verified by tool output; that FraudDetectionService was slow *in this incident* is not verified — suggested check: FraudDetectionService p99 latency and recent deploys/scale-ups.
 
 3. **Case 3: Out-of-Scope Error (`INC-031`) — abstention**
@@ -203,8 +203,8 @@ Each run produces a per-case evidence table (`results/grounding_<model>.md`), fo
 
 | Case | Proposed Cause | RAG Evidence | Tool Evidence | Supported? | Correct? |
 |---|---|---|---|---|---|
-| INC-001 | Pool exhaustion from unclosed async sessions | RUNBOOK-PG-01 §Connection Leak in Order Worker | lookup_error_code → 53300, limit = 100 | ✓ (after re-verify) | ✓ |
-| INC-004 | Cascading timeout from FraudDetectionService | PM-2026-04 §Cold-Start Latency in New Pods | check_service_dependencies → sync, 2000ms | ✓ (historical pattern) | ✓ |
+| INC-001 | Pool exhaustion from unclosed async sessions | RUNBOOK-PG-01 §Root Cause Analysis | lookup_error_code → 53300, limit = 100 | ✓ (after re-verify) | ✓ |
+| INC-004 | Cascading timeout from FraudDetectionService | PM-2026-04 §Root Cause Analysis | check_service_dependencies → sync, 2000ms | ✓ (historical pattern) | ✓ |
 | INC-031 | INSUFFICIENT_EVIDENCE | — | lookup_error_code → unknown_code | n/a | ✓ |
 | … | | | | | |
 
