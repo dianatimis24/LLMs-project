@@ -1,0 +1,5 @@
+config,label,chunking,mode,n_in_scope,n_out_of_scope,recall_at_1,recall_at_3,mrr_at_3,anchor_hit_rate_at_3,empty_result_rate,false_positive_rate,avg_latency_ms,p95_latency_ms
+naive_dense,Naive Chunking (500 chars) + Dense-Only Search,naive,dense,32,8,0.9688,1.0,0.9844,0.0,0.0,0.0,42.3969,97.377
+header_dense,Header-Aware Chunking + Dense-Only Search,header,dense,32,8,0.9688,1.0,0.9844,0.625,0.0,0.0,33.2075,73.02
+naive_hybrid,Naive Chunking (500 chars) + Hybrid Search (Dense + BM25),naive,hybrid,32,8,1.0,1.0,1.0,0.0,0.0,0.0,35.2664,79.963
+header_hybrid,Header-Aware Chunking + Hybrid Search (Dense + BM25),header,hybrid,32,8,0.9688,1.0,0.9844,0.5625,0.0,0.0,34.7124,77.65

@@ -1,0 +1,3021 @@
+{
+  "run": {
+    "timestamp": "2026-11-19T10:04:16+00:00",
+    "golden_dataset": "data/golden_dataset.json",
+    "split": "all",
+    "n_cases": 40,
+    "top_k": 3,
+    "min_dense_similarity": 0.74,
+    "min_bm25_score": 3.0,
+    "lexical_gate": "score",
+    "note": "Naive chunks have section_anchor='naive_chunk', so anchor_hit_rate_at_3 is 0 for naive configs."
+  },
+  "summary": [
+    {
+      "config": "naive_dense",
+      "label": "Naive Chunking (500 chars) + Dense-Only Search",
+      "chunking": "naive",
+      "mode": "dense",
+      "n_in_scope": 32,
+      "n_out_of_scope": 8,
+      "recall_at_1": 0.9688,
+      "recall_at_3": 1.0,
+      "mrr_at_3": 0.9844,
+      "anchor_hit_rate_at_3": 0.0,
+      "empty_result_rate": 0.0,
+      "false_positive_rate": 0.0,
+      "avg_latency_ms": 42.8509,
+      "p95_latency_ms": 101.023
+    },
+    {
+      "config": "header_dense",
+      "label": "Header-Aware Chunking + Dense-Only Search",
+      "chunking": "header",
+      "mode": "dense",
+      "n_in_scope": 32,
+      "n_out_of_scope": 8,
+      "recall_at_1": 0.9688,
+      "recall_at_3": 1.0,
+      "mrr_at_3": 0.9844,
+      "anchor_hit_rate_at_3": 0.625,
+      "empty_result_rate": 0.0,
+      "false_positive_rate": 0.0,
+      "avg_latency_ms": 34.0773,
+      "p95_latency_ms": 76.619
+    },
+    {
+      "config": "naive_hybrid",
+      "label": "Naive Chunking (500 chars) + Hybrid Search (Dense + BM25)",
+      "chunking": "naive",
+      "mode": "hybrid",
+      "n_in_scope": 32,
+      "n_out_of_scope": 8,
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "mrr_at_3": 1.0,
+      "anchor_hit_rate_at_3": 0.0,
+      "empty_result_rate": 0.0,
+      "false_positive_rate": 1.0,
+      "avg_latency_ms": 35.9374,
+      "p95_latency_ms": 80.564
+    },
+    {
+      "config": "header_hybrid",
+      "label": "Header-Aware Chunking + Hybrid Search (Dense + BM25)",
+      "chunking": "header",
+      "mode": "hybrid",
+      "n_in_scope": 32,
+      "n_out_of_scope": 8,
+      "recall_at_1": 0.9688,
+      "recall_at_3": 1.0,
+      "mrr_at_3": 0.9844,
+      "anchor_hit_rate_at_3": 0.625,
+      "empty_result_rate": 0.0,
+      "false_positive_rate": 1.0,
+      "avg_latency_ms": 35.635,
+      "p95_latency_ms": 78.636
+    }
+  ],
+  "per_case": {
+    "naive_dense": [
+      {
+        "id": "INC-001",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 30.239,
+        "top_dense_similarity": 0.9381,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-002",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 25.205,
+        "top_dense_similarity": 0.8265,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-003",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 33.454,
+        "top_dense_similarity": 0.9736,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-004",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 31.332,
+        "top_dense_similarity": 0.87,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-005",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 23.499,
+        "top_dense_similarity": 0.9337,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-006",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk"
+        ],
+        "latency_ms": 28.562,
+        "top_dense_similarity": 0.7991,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-007",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk"
+        ],
+        "latency_ms": 30.572,
+        "top_dense_similarity": 0.8543,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-008",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk"
+        ],
+        "latency_ms": 26.181,
+        "top_dense_similarity": 0.8207,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-009",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 31.39,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-010",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 32.985,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-011",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk"
+        ],
+        "latency_ms": 68.303,
+        "top_dense_similarity": 0.9128,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-012",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk"
+        ],
+        "latency_ms": 31.893,
+        "top_dense_similarity": 0.9035,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-013",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk"
+        ],
+        "latency_ms": 27.381,
+        "top_dense_similarity": 0.9692,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-014",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk"
+        ],
+        "latency_ms": 101.023,
+        "top_dense_similarity": 0.8352,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-015",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk"
+        ],
+        "latency_ms": 93.081,
+        "top_dense_similarity": 0.9076,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-016",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#naive_chunk"
+        ],
+        "latency_ms": 32.421,
+        "top_dense_similarity": 0.7694,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-017",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#naive_chunk",
+          "PM-2026-02#naive_chunk",
+          "PM-2026-02#naive_chunk"
+        ],
+        "latency_ms": 104.097,
+        "top_dense_similarity": 0.9073,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-018",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#naive_chunk",
+          "PM-2026-02#naive_chunk",
+          "PM-2026-02#naive_chunk"
+        ],
+        "latency_ms": 31.92,
+        "top_dense_similarity": 0.8036,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-019",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 52.418,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-020",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 46.586,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-021",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-01#naive_chunk",
+          "RUNBOOK-INFRA-01#naive_chunk",
+          "RUNBOOK-INFRA-01#naive_chunk"
+        ],
+        "latency_ms": 30.767,
+        "top_dense_similarity": 0.8838,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-022",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 25.03,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-023",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 33.373,
+        "top_dense_similarity": 0.843,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-024",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 26.224,
+        "top_dense_similarity": 0.818,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-025",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 32.326,
+        "top_dense_similarity": 0.9266,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-026",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 28.729,
+        "top_dense_similarity": 0.7752,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-027",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 23.321,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-028",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 34.235,
+        "top_dense_similarity": 0.936,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-029",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 25.545,
+        "top_dense_similarity": 0.8341,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-030",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 23.278,
+        "top_dense_similarity": 0.8117,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-031",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk",
+          "RUNBOOK-API-01#naive_chunk"
+        ],
+        "latency_ms": 39.113,
+        "top_dense_similarity": 0.9303,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-032",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#naive_chunk",
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 23.217,
+        "top_dense_similarity": 0.7942,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-033",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 117.177,
+        "top_dense_similarity": 0.7793,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 0.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 0.5,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-034",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#naive_chunk",
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 27.991,
+        "top_dense_similarity": 0.8572,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-035",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk"
+        ],
+        "latency_ms": 41.34,
+        "top_dense_similarity": 0.9235,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-036",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk"
+        ],
+        "latency_ms": 25.688,
+        "top_dense_similarity": 0.7868,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-037",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk"
+        ],
+        "latency_ms": 99.85,
+        "top_dense_similarity": 0.9141,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-038",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk"
+        ],
+        "latency_ms": 94.5,
+        "top_dense_similarity": 0.852,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-039",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 57.549,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-040",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 22.242,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      }
+    ],
+    "header_dense": [
+      {
+        "id": "INC-001",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "RUNBOOK-PG-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 25.754,
+        "top_dense_similarity": 0.9176,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-002",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "RUNBOOK-PG-01#Service-Overview",
+          "RUNBOOK-PG-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 26.29,
+        "top_dense_similarity": 0.7946,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-003",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#Common-Error-Signatures",
+          "RUNBOOK-PG-02#Service-Overview",
+          "RUNBOOK-PG-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 33.966,
+        "top_dense_similarity": 0.9329,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-004",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#Common-Error-Signatures",
+          "RUNBOOK-PG-02#Root-Cause-Analysis",
+          "RUNBOOK-PG-02#Service-Overview"
+        ],
+        "latency_ms": 26.983,
+        "top_dense_similarity": 0.8552,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-005",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-PG-03#Service-Overview"
+        ],
+        "latency_ms": 22.121,
+        "top_dense_similarity": 0.8921,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-006",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-PG-03#Service-Overview",
+          "RUNBOOK-PG-03#Playbook-Remediation"
+        ],
+        "latency_ms": 22.875,
+        "top_dense_similarity": 0.7775,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-007",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#Common-Error-Signatures",
+          "PM-2026-01#Service-Overview",
+          "PM-2026-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 21.814,
+        "top_dense_similarity": 0.8691,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-008",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#Common-Error-Signatures",
+          "PM-2026-01#Service-Overview"
+        ],
+        "latency_ms": 21.53,
+        "top_dense_similarity": 0.8323,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-009",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 26.422,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-010",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 25.934,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-011",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#Common-Error-Signatures",
+          "RUNBOOK-CACHE-01#Service-Overview",
+          "RUNBOOK-CACHE-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 60.024,
+        "top_dense_similarity": 0.914,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-012",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#Common-Error-Signatures",
+          "RUNBOOK-CACHE-01#Service-Overview",
+          "RUNBOOK-CACHE-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 26.686,
+        "top_dense_similarity": 0.8939,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-013",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#Common-Error-Signatures",
+          "RUNBOOK-CACHE-02#Service-Overview",
+          "RUNBOOK-PG-03#Common-Error-Signatures"
+        ],
+        "latency_ms": 23.303,
+        "top_dense_similarity": 0.913,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-014",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#Common-Error-Signatures",
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-CACHE-02#Service-Overview"
+        ],
+        "latency_ms": 76.714,
+        "top_dense_similarity": 0.8485,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-015",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#Common-Error-Signatures",
+          "RUNBOOK-KAFKA-01#Service-Overview",
+          "RUNBOOK-KAFKA-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 76.619,
+        "top_dense_similarity": 0.8982,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-016",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#Service-Overview"
+        ],
+        "latency_ms": 23.321,
+        "top_dense_similarity": 0.7631,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-017",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#Common-Error-Signatures",
+          "PM-2026-02#Root-Cause-Analysis",
+          "RUNBOOK-KAFKA-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 67.435,
+        "top_dense_similarity": 0.9001,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-018",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#Service-Overview",
+          "PM-2026-02#Root-Cause-Analysis",
+          "PM-2026-01#Service-Overview"
+        ],
+        "latency_ms": 23.98,
+        "top_dense_similarity": 0.7559,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-019",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 47.939,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-020",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 35.447,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-021",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-01#Common-Error-Signatures",
+          "RUNBOOK-INFRA-01#Service-Overview"
+        ],
+        "latency_ms": 19.804,
+        "top_dense_similarity": 0.8967,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-022",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 21.549,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-023",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Common-Error-Signatures",
+          "RUNBOOK-INFRA-02#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-02#Service-Overview"
+        ],
+        "latency_ms": 28.295,
+        "top_dense_similarity": 0.819,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-024",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Service-Overview",
+          "RUNBOOK-INFRA-02#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 20.33,
+        "top_dense_similarity": 0.8131,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-025",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-INFRA-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 27.806,
+        "top_dense_similarity": 0.9167,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-026",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-INFRA-03#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-03#Common-Error-Signatures"
+        ],
+        "latency_ms": 20.648,
+        "top_dense_similarity": 0.7461,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-027",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 18.89,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-028",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Common-Error-Signatures",
+          "RUNBOOK-INFRA-02#Service-Overview",
+          "RUNBOOK-INFRA-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 27.541,
+        "top_dense_similarity": 0.8824,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-029",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-INFRA-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 19.462,
+        "top_dense_similarity": 0.8202,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-030",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Service-Overview",
+          "RUNBOOK-INFRA-02#Common-Error-Signatures",
+          "RUNBOOK-INFRA-02#Playbook-Remediation"
+        ],
+        "latency_ms": 19.986,
+        "top_dense_similarity": 0.7948,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-031",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#Common-Error-Signatures",
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-API-01#Service-Overview"
+        ],
+        "latency_ms": 29.978,
+        "top_dense_similarity": 0.8955,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-032",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#Service-Overview",
+          "RUNBOOK-API-01#Common-Error-Signatures",
+          "PM-2026-04#Root-Cause-Analysis"
+        ],
+        "latency_ms": 20.073,
+        "top_dense_similarity": 0.7515,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 0.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 0.5,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-033",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-API-01#Common-Error-Signatures",
+          "PM-2026-04#Root-Cause-Analysis"
+        ],
+        "latency_ms": 85.611,
+        "top_dense_similarity": 0.826,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-034",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#Root-Cause-Analysis",
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-API-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 22.856,
+        "top_dense_similarity": 0.8179,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-035",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#Common-Error-Signatures",
+          "RUNBOOK-API-02#Service-Overview",
+          "RUNBOOK-API-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 34.411,
+        "top_dense_similarity": 0.9111,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-036",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#Service-Overview",
+          "RUNBOOK-API-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 20.945,
+        "top_dense_similarity": 0.7848,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-037",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#Common-Error-Signatures",
+          "RUNBOOK-API-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 75.927,
+        "top_dense_similarity": 0.887,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-038",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#Common-Error-Signatures",
+          "RUNBOOK-API-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 69.69,
+        "top_dense_similarity": 0.8503,
+        "top_bm25_score": null,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-039",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 44.417,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      },
+      {
+        "id": "INC-040",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [],
+        "latency_ms": 19.716,
+        "top_dense_similarity": null,
+        "top_bm25_score": null,
+        "false_positive": false
+      }
+    ],
+    "naive_hybrid": [
+      {
+        "id": "INC-001",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk"
+        ],
+        "latency_ms": 27.56,
+        "top_dense_similarity": 0.9381,
+        "top_bm25_score": 116.1832,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-002",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk"
+        ],
+        "latency_ms": 20.658,
+        "top_dense_similarity": 0.8265,
+        "top_bm25_score": 51.1797,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-003",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 29.654,
+        "top_dense_similarity": 0.9736,
+        "top_bm25_score": 205.8607,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-004",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-PG-02#naive_chunk"
+        ],
+        "latency_ms": 23.808,
+        "top_dense_similarity": 0.87,
+        "top_bm25_score": 63.4429,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-005",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk"
+        ],
+        "latency_ms": 21.555,
+        "top_dense_similarity": 0.9337,
+        "top_bm25_score": 65.7324,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-006",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk"
+        ],
+        "latency_ms": 23.219,
+        "top_dense_similarity": 0.7991,
+        "top_bm25_score": 58.0371,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-007",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk"
+        ],
+        "latency_ms": 22.617,
+        "top_dense_similarity": 0.8543,
+        "top_bm25_score": 81.1337,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-008",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk",
+          "PM-2026-01#naive_chunk"
+        ],
+        "latency_ms": 22.394,
+        "top_dense_similarity": 0.8207,
+        "top_bm25_score": 54.0737,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-009",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#naive_chunk",
+          "PM-2026-03#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 26.783,
+        "top_dense_similarity": 0.7333,
+        "top_bm25_score": 11.2372,
+        "false_positive": true
+      },
+      {
+        "id": "INC-010",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk"
+        ],
+        "latency_ms": 26.233,
+        "top_dense_similarity": 0.6621,
+        "top_bm25_score": 8.1737,
+        "false_positive": true
+      },
+      {
+        "id": "INC-011",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk"
+        ],
+        "latency_ms": 53.541,
+        "top_dense_similarity": 0.9128,
+        "top_bm25_score": 160.4673,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-012",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk",
+          "RUNBOOK-CACHE-01#naive_chunk"
+        ],
+        "latency_ms": 29.516,
+        "top_dense_similarity": 0.9035,
+        "top_bm25_score": 78.995,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-013",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk"
+        ],
+        "latency_ms": 24.114,
+        "top_dense_similarity": 0.9692,
+        "top_bm25_score": 94.4239,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-014",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk"
+        ],
+        "latency_ms": 83.261,
+        "top_dense_similarity": 0.8352,
+        "top_bm25_score": 204.9599,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-015",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk"
+        ],
+        "latency_ms": 77.021,
+        "top_dense_similarity": 0.9076,
+        "top_bm25_score": 258.7064,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-016",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk"
+        ],
+        "latency_ms": 28.56,
+        "top_dense_similarity": 0.7694,
+        "top_bm25_score": 39.9771,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-017",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#naive_chunk",
+          "RUNBOOK-KAFKA-01#naive_chunk",
+          "PM-2026-02#naive_chunk"
+        ],
+        "latency_ms": 73.297,
+        "top_dense_similarity": 0.9073,
+        "top_bm25_score": 248.9049,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-018",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#naive_chunk",
+          "PM-2026-02#naive_chunk",
+          "PM-2026-02#naive_chunk"
+        ],
+        "latency_ms": 27.446,
+        "top_dense_similarity": 0.8036,
+        "top_bm25_score": 31.1063,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-019",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk"
+        ],
+        "latency_ms": 44.892,
+        "top_dense_similarity": 0.7069,
+        "top_bm25_score": 17.9483,
+        "false_positive": true
+      },
+      {
+        "id": "INC-020",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-PG-01#naive_chunk",
+          "RUNBOOK-INFRA-01#naive_chunk"
+        ],
+        "latency_ms": 40.452,
+        "top_dense_similarity": 0.685,
+        "top_bm25_score": 21.4375,
+        "false_positive": true
+      },
+      {
+        "id": "INC-021",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-01#naive_chunk",
+          "RUNBOOK-INFRA-01#naive_chunk",
+          "RUNBOOK-INFRA-01#naive_chunk"
+        ],
+        "latency_ms": 23.949,
+        "top_dense_similarity": 0.8838,
+        "top_bm25_score": 68.7764,
+        "expected_docs": [
+          "RUNBOOK-INFRA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-022",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#naive_chunk",
+          "PM-2026-01#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 22.462,
+        "top_dense_similarity": 0.6182,
+        "top_bm25_score": 17.8666,
+        "false_positive": true
+      },
+      {
+        "id": "INC-023",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 32.472,
+        "top_dense_similarity": 0.843,
+        "top_bm25_score": 82.1736,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-024",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 22.82,
+        "top_dense_similarity": 0.818,
+        "top_bm25_score": 36.3575,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-025",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 29.835,
+        "top_dense_similarity": 0.9266,
+        "top_bm25_score": 136.9598,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-026",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 22.821,
+        "top_dense_similarity": 0.7752,
+        "top_bm25_score": 30.2719,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-027",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-PG-03#naive_chunk",
+          "RUNBOOK-CACHE-02#naive_chunk"
+        ],
+        "latency_ms": 21.708,
+        "top_dense_similarity": 0.6866,
+        "top_bm25_score": 18.5179,
+        "false_positive": true
+      },
+      {
+        "id": "INC-028",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 31.272,
+        "top_dense_similarity": 0.936,
+        "top_bm25_score": 144.078,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-029",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk",
+          "RUNBOOK-INFRA-03#naive_chunk"
+        ],
+        "latency_ms": 21.32,
+        "top_dense_similarity": 0.8341,
+        "top_bm25_score": 35.2616,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-030",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk",
+          "RUNBOOK-INFRA-02#naive_chunk"
+        ],
+        "latency_ms": 21.138,
+        "top_dense_similarity": 0.8117,
+        "top_bm25_score": 20.3219,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-031",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk",
+          "RUNBOOK-API-01#naive_chunk"
+        ],
+        "latency_ms": 32.774,
+        "top_dense_similarity": 0.9303,
+        "top_bm25_score": 140.6804,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-032",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#naive_chunk",
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 25.49,
+        "top_dense_similarity": 0.7942,
+        "top_bm25_score": 30.5141,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-033",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#naive_chunk",
+          "RUNBOOK-API-01#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 91.421,
+        "top_dense_similarity": 0.7793,
+        "top_bm25_score": 173.0592,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-034",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#naive_chunk",
+          "PM-2026-04#naive_chunk",
+          "PM-2026-04#naive_chunk"
+        ],
+        "latency_ms": 24.684,
+        "top_dense_similarity": 0.8572,
+        "top_bm25_score": 40.7882,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-035",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk"
+        ],
+        "latency_ms": 37.179,
+        "top_dense_similarity": 0.9235,
+        "top_bm25_score": 106.3815,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-036",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk"
+        ],
+        "latency_ms": 25.949,
+        "top_dense_similarity": 0.7868,
+        "top_bm25_score": 38.7357,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-037",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk"
+        ],
+        "latency_ms": 80.564,
+        "top_dense_similarity": 0.9141,
+        "top_bm25_score": 361.6219,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-038",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk",
+          "RUNBOOK-API-03#naive_chunk"
+        ],
+        "latency_ms": 70.933,
+        "top_dense_similarity": 0.852,
+        "top_bm25_score": 293.8783,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-039",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk"
+        ],
+        "latency_ms": 49.997,
+        "top_dense_similarity": 0.704,
+        "top_bm25_score": 46.6258,
+        "false_positive": true
+      },
+      {
+        "id": "INC-040",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#naive_chunk",
+          "PM-2026-03#naive_chunk",
+          "RUNBOOK-API-02#naive_chunk"
+        ],
+        "latency_ms": 22.129,
+        "top_dense_similarity": 0.6748,
+        "top_bm25_score": 13.7267,
+        "false_positive": true
+      }
+    ],
+    "header_hybrid": [
+      {
+        "id": "INC-001",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "RUNBOOK-PG-01#Service-Overview",
+          "RUNBOOK-PG-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 26.884,
+        "top_dense_similarity": 0.9176,
+        "top_bm25_score": 102.0766,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-002",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "RUNBOOK-PG-01#Root-Cause-Analysis",
+          "RUNBOOK-PG-01#Service-Overview"
+        ],
+        "latency_ms": 19.516,
+        "top_dense_similarity": 0.7946,
+        "top_bm25_score": 44.7079,
+        "expected_docs": [
+          "RUNBOOK-PG-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-003",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#Common-Error-Signatures",
+          "RUNBOOK-PG-02#Service-Overview",
+          "RUNBOOK-PG-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 30.492,
+        "top_dense_similarity": 0.9329,
+        "top_bm25_score": 185.1472,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-004",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#Common-Error-Signatures",
+          "RUNBOOK-PG-02#Root-Cause-Analysis",
+          "RUNBOOK-PG-02#Service-Overview"
+        ],
+        "latency_ms": 24.448,
+        "top_dense_similarity": 0.8552,
+        "top_bm25_score": 70.2787,
+        "expected_docs": [
+          "RUNBOOK-PG-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-005",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-PG-03#Service-Overview",
+          "RUNBOOK-CACHE-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 20.469,
+        "top_dense_similarity": 0.8921,
+        "top_bm25_score": 66.321,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-006",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-PG-03#Playbook-Remediation",
+          "RUNBOOK-PG-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 22.376,
+        "top_dense_similarity": 0.7775,
+        "top_bm25_score": 59.0344,
+        "expected_docs": [
+          "RUNBOOK-PG-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-007",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#Common-Error-Signatures",
+          "PM-2026-01#Service-Overview",
+          "PM-2026-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 21.302,
+        "top_dense_similarity": 0.8691,
+        "top_bm25_score": 83.9288,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-008",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-01#Common-Error-Signatures",
+          "PM-2026-01#Service-Overview",
+          "PM-2026-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 23.675,
+        "top_dense_similarity": 0.8323,
+        "top_bm25_score": 54.5019,
+        "expected_docs": [
+          "PM-2026-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-009",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "PM-2026-03#Service-Overview",
+          "PM-2026-04#Service-Overview"
+        ],
+        "latency_ms": 25.544,
+        "top_dense_similarity": 0.7233,
+        "top_bm25_score": 10.0843,
+        "false_positive": true
+      },
+      {
+        "id": "INC-010",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-02#Root-Cause-Analysis",
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "RUNBOOK-CACHE-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 25.277,
+        "top_dense_similarity": 0.6847,
+        "top_bm25_score": 10.4689,
+        "false_positive": true
+      },
+      {
+        "id": "INC-011",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#Common-Error-Signatures",
+          "RUNBOOK-CACHE-01#Service-Overview",
+          "RUNBOOK-CACHE-01#Playbook-Remediation"
+        ],
+        "latency_ms": 56.91,
+        "top_dense_similarity": 0.914,
+        "top_bm25_score": 157.2995,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-012",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#Common-Error-Signatures",
+          "RUNBOOK-CACHE-01#Service-Overview",
+          "RUNBOOK-CACHE-01#Playbook-Remediation"
+        ],
+        "latency_ms": 28.316,
+        "top_dense_similarity": 0.8939,
+        "top_bm25_score": 77.3426,
+        "expected_docs": [
+          "RUNBOOK-CACHE-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-013",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#Common-Error-Signatures",
+          "RUNBOOK-CACHE-02#Service-Overview",
+          "RUNBOOK-CACHE-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 22.617,
+        "top_dense_similarity": 0.913,
+        "top_bm25_score": 81.5127,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-014",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-02#Common-Error-Signatures",
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-CACHE-02#Service-Overview"
+        ],
+        "latency_ms": 78.636,
+        "top_dense_similarity": 0.8485,
+        "top_bm25_score": 207.0518,
+        "expected_docs": [
+          "RUNBOOK-CACHE-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-015",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#Common-Error-Signatures",
+          "RUNBOOK-KAFKA-01#Service-Overview",
+          "PM-2026-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 80.537,
+        "top_dense_similarity": 0.8982,
+        "top_bm25_score": 252.8451,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-016",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-KAFKA-01#Service-Overview",
+          "RUNBOOK-KAFKA-01#Root-Cause-Analysis",
+          "RUNBOOK-KAFKA-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 27.586,
+        "top_dense_similarity": 0.7631,
+        "top_bm25_score": 55.3609,
+        "expected_docs": [
+          "RUNBOOK-KAFKA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-017",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#Common-Error-Signatures",
+          "PM-2026-02#Root-Cause-Analysis",
+          "RUNBOOK-KAFKA-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 77.637,
+        "top_dense_similarity": 0.9001,
+        "top_bm25_score": 242.1436,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-018",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-02#Root-Cause-Analysis",
+          "PM-2026-02#Service-Overview",
+          "PM-2026-02#Playbook-Remediation"
+        ],
+        "latency_ms": 27.681,
+        "top_dense_similarity": 0.7559,
+        "top_bm25_score": 38.6507,
+        "expected_docs": [
+          "PM-2026-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-019",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#Common-Error-Signatures",
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-PG-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 45.547,
+        "top_dense_similarity": 0.69,
+        "top_bm25_score": 19.3255,
+        "false_positive": true
+      },
+      {
+        "id": "INC-020",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-01#Common-Error-Signatures",
+          "RUNBOOK-INFRA-01#Root-Cause-Analysis",
+          "RUNBOOK-PG-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 41.531,
+        "top_dense_similarity": 0.6882,
+        "top_bm25_score": 18.084,
+        "false_positive": true
+      },
+      {
+        "id": "INC-021",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-01#Common-Error-Signatures",
+          "RUNBOOK-INFRA-01#Service-Overview",
+          "RUNBOOK-INFRA-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 21.169,
+        "top_dense_similarity": 0.8967,
+        "top_bm25_score": 59.4061,
+        "expected_docs": [
+          "RUNBOOK-INFRA-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-022",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-CACHE-01#Root-Cause-Analysis",
+          "RUNBOOK-CACHE-02#Service-Overview",
+          "PM-2026-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 22.686,
+        "top_dense_similarity": 0.6214,
+        "top_bm25_score": 18.1024,
+        "false_positive": true
+      },
+      {
+        "id": "INC-023",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Common-Error-Signatures",
+          "RUNBOOK-INFRA-02#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-02#Playbook-Remediation"
+        ],
+        "latency_ms": 29.637,
+        "top_dense_similarity": 0.819,
+        "top_bm25_score": 113.6879,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-024",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-02#Service-Overview",
+          "RUNBOOK-INFRA-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 21.476,
+        "top_dense_similarity": 0.8131,
+        "top_bm25_score": 37.864,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-025",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Playbook-Remediation",
+          "RUNBOOK-INFRA-03#Service-Overview"
+        ],
+        "latency_ms": 30.841,
+        "top_dense_similarity": 0.9167,
+        "top_bm25_score": 131.3188,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-026",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-INFRA-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 22.586,
+        "top_dense_similarity": 0.7461,
+        "top_bm25_score": 29.2807,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-027",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-PG-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-PG-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 21.077,
+        "top_dense_similarity": 0.6799,
+        "top_bm25_score": 19.6561,
+        "false_positive": true
+      },
+      {
+        "id": "INC-028",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Common-Error-Signatures",
+          "RUNBOOK-INFRA-02#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-02#Service-Overview"
+        ],
+        "latency_ms": 30.438,
+        "top_dense_similarity": 0.8824,
+        "top_bm25_score": 130.2238,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-029",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-INFRA-03#Playbook-Remediation"
+        ],
+        "latency_ms": 20.556,
+        "top_dense_similarity": 0.8202,
+        "top_bm25_score": 38.4887,
+        "expected_docs": [
+          "RUNBOOK-INFRA-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-030",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-INFRA-02#Service-Overview",
+          "RUNBOOK-INFRA-02#Playbook-Remediation",
+          "RUNBOOK-INFRA-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 20.576,
+        "top_dense_similarity": 0.7948,
+        "top_bm25_score": 21.4833,
+        "expected_docs": [
+          "RUNBOOK-INFRA-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-031",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-01#Common-Error-Signatures",
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-API-01#Service-Overview"
+        ],
+        "latency_ms": 30.869,
+        "top_dense_similarity": 0.8955,
+        "top_bm25_score": 131.806,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-032",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#Service-Overview",
+          "RUNBOOK-API-01#Root-Cause-Analysis",
+          "RUNBOOK-API-01#Common-Error-Signatures"
+        ],
+        "latency_ms": 22.235,
+        "top_dense_similarity": 0.7515,
+        "top_bm25_score": 32.34,
+        "expected_docs": [
+          "RUNBOOK-API-01"
+        ],
+        "recall_at_1": 0.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 0.5,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-033",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-API-01#Common-Error-Signatures",
+          "RUNBOOK-API-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 94.333,
+        "top_dense_similarity": 0.826,
+        "top_bm25_score": 146.854,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": false
+      },
+      {
+        "id": "INC-034",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "PM-2026-04#Root-Cause-Analysis",
+          "PM-2026-04#Common-Error-Signatures",
+          "RUNBOOK-API-01#Root-Cause-Analysis"
+        ],
+        "latency_ms": 25.312,
+        "top_dense_similarity": 0.8179,
+        "top_bm25_score": 41.7525,
+        "expected_docs": [
+          "PM-2026-04"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-035",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#Common-Error-Signatures",
+          "RUNBOOK-API-02#Service-Overview",
+          "RUNBOOK-API-02#Root-Cause-Analysis"
+        ],
+        "latency_ms": 34.207,
+        "top_dense_similarity": 0.9111,
+        "top_bm25_score": 109.7658,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-036",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#Root-Cause-Analysis",
+          "RUNBOOK-API-02#Service-Overview",
+          "RUNBOOK-API-02#Common-Error-Signatures"
+        ],
+        "latency_ms": 23.756,
+        "top_dense_similarity": 0.7848,
+        "top_bm25_score": 44.1005,
+        "expected_docs": [
+          "RUNBOOK-API-02"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-037",
+        "split": "adaptation",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#Common-Error-Signatures",
+          "RUNBOOK-API-03#Service-Overview",
+          "RUNBOOK-API-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 76.692,
+        "top_dense_similarity": 0.887,
+        "top_bm25_score": 310.7139,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-038",
+        "split": "held_out",
+        "in_scope": true,
+        "retrieved_refs": [
+          "RUNBOOK-API-03#Common-Error-Signatures",
+          "RUNBOOK-API-03#Service-Overview",
+          "RUNBOOK-API-03#Root-Cause-Analysis"
+        ],
+        "latency_ms": 78.189,
+        "top_dense_similarity": 0.8503,
+        "top_bm25_score": 323.9789,
+        "expected_docs": [
+          "RUNBOOK-API-03"
+        ],
+        "recall_at_1": 1.0,
+        "recall_at_3": 1.0,
+        "rr_at_3": 1.0,
+        "anchor_hit_at_3": true
+      },
+      {
+        "id": "INC-039",
+        "split": "adaptation",
+        "in_scope": false,
+        "retrieved_refs": [
+          "RUNBOOK-API-02#Root-Cause-Analysis",
+          "RUNBOOK-API-02#Common-Error-Signatures",
+          "RUNBOOK-API-02#Service-Overview"
+        ],
+        "latency_ms": 49.551,
+        "top_dense_similarity": 0.7102,
+        "top_bm25_score": 46.7392,
+        "false_positive": true
+      },
+      {
+        "id": "INC-040",
+        "split": "held_out",
+        "in_scope": false,
+        "retrieved_refs": [
+          "PM-2026-03#Service-Overview",
+          "RUNBOOK-API-02#Playbook-Remediation",
+          "RUNBOOK-API-03#Service-Overview"
+        ],
+        "latency_ms": 22.234,
+        "top_dense_similarity": 0.6748,
+        "top_bm25_score": 16.6896,
+        "false_positive": true
+      }
+    ]
+  }
+}
