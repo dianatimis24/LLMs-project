@@ -6,6 +6,10 @@ configuration files in ``data/config/``.
 Tools implemented in RC-11:
 - ``parse_stack_trace(raw_log: str) -> ParsedStackTrace``
 - ``lookup_error_code(code: str, service: str) -> ErrorCodeLookup``
+
+Tools implemented in RC-12:
+- ``check_service_dependencies(service_name: str) -> list[ServiceDependency]``
+- ``validate_remediation_command(command: str) -> CommandValidation``
 """
 
 from __future__ import annotations
@@ -17,9 +21,16 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from src.schemas import ErrorCodeLookup, ParsedStackTrace
+from src.schemas import (
+    CommandValidation,
+    ErrorCodeLookup,
+    ParsedStackTrace,
+    ServiceDependency,
+)
 
 DEFAULT_ERROR_REGISTRY_PATH = Path("data/config/error_registry.json")
+DEFAULT_TOPOLOGY_PATH = Path("data/config/topology.json")
+DEFAULT_ALLOWLIST_PATH = Path("data/config/command_allowlist.json")
 
 mcp = FastMCP("RootCause-Diagnostic-Server")
 
@@ -323,6 +334,144 @@ def lookup_error_code(
 
 
 # ---------------------------------------------------------------------------
+# Tool 3: check_service_dependencies (RC-12)
+# ---------------------------------------------------------------------------
+
+
+def _load_json_config(path: Path | str, label: str) -> dict[str, Any]:
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"{label} not found at {p}")
+    return json.loads(p.read_text(encoding="utf-8-sig"))
+
+
+def check_service_dependencies(
+    service_name: str,
+    *,
+    topology_path: Path | str = DEFAULT_TOPOLOGY_PATH,
+) -> list[ServiceDependency]:
+    """Return every direct edge of ``topology.json`` touching ``service_name``.
+
+    - ``depends_on``:     the queried service calls ``service`` (downstream).
+    - ``depended_on_by``: ``service`` calls the queried service (upstream), so a
+      failure of the queried service can cascade to it.
+
+    Each edge carries its ``call_type`` (sync / async) and the caller's timeout
+    (``timeout_ms``, ``None`` for async calls). Only direct edges are returned;
+    follow a chain by calling the tool again on a returned ``service``. Returns
+    an empty list for an unknown or empty service name. Downstream edges come
+    first (in topology order), then upstream edges (in topology order).
+    """
+    if not service_name or not service_name.strip():
+        return []
+
+    topology = _load_json_config(topology_path, "Service topology")
+    name = _normalize_service_name(service_name.strip())
+    canonical = name if name in topology else next(
+        (key for key in topology if key.lower() == name.lower()), None
+    )
+    if canonical is None:
+        return []
+
+    edges: list[ServiceDependency] = []
+    for dep in topology[canonical].get("dependencies", []):
+        edges.append(
+            ServiceDependency(
+                service=dep["service"],
+                relationship="depends_on",
+                call_type=dep["call_type"],
+                timeout_ms=dep.get("caller_timeout_ms"),
+            )
+        )
+    for caller, node in topology.items():
+        for dep in node.get("dependencies", []):
+            if dep["service"] == canonical:
+                edges.append(
+                    ServiceDependency(
+                        service=caller,
+                        relationship="depended_on_by",
+                        call_type=dep["call_type"],
+                        timeout_ms=dep.get("caller_timeout_ms"),
+                    )
+                )
+    return edges
+
+
+# ---------------------------------------------------------------------------
+# Tool 4: validate_remediation_command (RC-12)
+# ---------------------------------------------------------------------------
+
+# Operators that would let an allowlisted prefix smuggle in a second command,
+# e.g. ``kubectl get pods; shutdown now``. A single trailing ``;`` (normal SQL)
+# is fine; a ``;`` followed by more text is not.
+_CHAINING_RE = re.compile(r"&&|(?<=\s)&(?=\s|$)|\|\|?|`|\$\(|[\r\n]|;(?=\s*\S)")
+
+
+def validate_remediation_command(
+    command: str,
+    *,
+    allowlist_path: Path | str = DEFAULT_ALLOWLIST_PATH,
+) -> CommandValidation:
+    """Evaluate a proposed CLI/SQL command against ``command_allowlist.json``.
+
+    Policy (default deny), evaluated in order:
+
+    1. any ``blocked_patterns`` regex matching anywhere in the command blocks it
+       (``rm -rf``, ``DROP TABLE``, ``kubectl delete namespace``, ...);
+    2. command chaining / substitution (``&&``, ``|``, ``;`` + more text, backticks,
+       ``$(...)``, newlines) is denied, because the allowlist only inspects the
+       start of the command and would otherwise let a second command through;
+    3. otherwise the command is allowed only if it starts with an
+       ``allowed_prefixes`` entry; everything else is denied.
+
+    Matching is case-insensitive, as declared by the allowlist's policy.
+    ``matched_rule`` names the blocked pattern, the chaining operator or the
+    allowlisted prefix that decided the verdict (``None`` for default deny).
+    """
+    cmd = (command or "").strip()
+    if not cmd:
+        return CommandValidation(allowed=False, reason="Denied: empty command.")
+
+    config = _load_json_config(allowlist_path, "Command allowlist")
+    case_sensitive = bool(config.get("policy", {}).get("case_sensitive", False))
+    flags = 0 if case_sensitive else re.IGNORECASE
+
+    for rule in config.get("blocked_patterns", []):
+        if re.search(rule["pattern"], cmd, flags=flags):
+            return CommandValidation(
+                allowed=False,
+                reason=f"Blocked: {rule['description']}.",
+                matched_rule=rule["pattern"],
+            )
+
+    if chain := _CHAINING_RE.search(cmd):
+        operator = chain.group(0)
+        shown = "newline" if operator in ("\n", "\r") else operator
+        return CommandValidation(
+            allowed=False,
+            reason=(
+                f"Denied: command chaining or substitution ({shown!r}) could run "
+                "a second, unvalidated command."
+            ),
+            matched_rule=shown,
+        )
+
+    haystack = cmd if case_sensitive else cmd.lower()
+    for prefix in config.get("allowed_prefixes", []):
+        if haystack.startswith(prefix if case_sensitive else prefix.lower()):
+            return CommandValidation(
+                allowed=True,
+                reason=f"Allowed: matches allowlisted prefix {prefix.strip()!r}.",
+                matched_rule=prefix,
+            )
+
+    return CommandValidation(
+        allowed=False,
+        reason="Denied: command does not start with any allowlisted prefix (default deny).",
+    )
+
+
+# ---------------------------------------------------------------------------
 # FastMCP tool registrations (thin wrappers keep pure functions directly callable)
 # ---------------------------------------------------------------------------
 
@@ -336,6 +485,18 @@ def _mcp_parse_stack_trace(raw_log: str) -> ParsedStackTrace:
 def _mcp_lookup_error_code(code: str, service: str) -> ErrorCodeLookup:
     """Look up deterministic metadata (category, severity, owner, configured limits) for an error code and service in error_registry.json."""
     return lookup_error_code(code=code, service=service)
+
+
+@mcp.tool(name="check_service_dependencies")
+def _mcp_check_service_dependencies(service_name: str) -> list[ServiceDependency]:
+    """List the services a service depends on (downstream) and the services that depend on it (upstream), with call type (sync/async) and caller timeout in ms, from topology.json. Use it to trace how a failure can cascade."""
+    return check_service_dependencies(service_name)
+
+
+@mcp.tool(name="validate_remediation_command")
+def _mcp_validate_remediation_command(command: str) -> CommandValidation:
+    """Check a proposed CLI/SQL remediation command against command_allowlist.json. Destructive commands (rm -rf, DROP TABLE, kubectl delete namespace, ...) and anything not allowlisted are rejected. Returns allowed, reason and the rule that matched."""
+    return validate_remediation_command(command)
 
 
 if __name__ == "__main__":
