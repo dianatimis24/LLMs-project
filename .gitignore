@@ -30,3 +30,6 @@ wandb/
 .vscode/
 .idea/
 .DS_Store
+
+# Agent session traces (RC-15)
+results/traces/

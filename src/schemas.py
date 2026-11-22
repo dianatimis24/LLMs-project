@@ -326,3 +326,84 @@ class DiagnosisOutput(_StrictModel):
                 )
         return self
  
+
+# ---------------------------------------------------------------------------
+# 4. Session trace (RC-15)
+#    The evidence log the agent keeps for one diagnosis session. The Output
+#    Guardrail (RC-16) verifies every citation against it, deterministically:
+#      (1) a cited ``rag_doc_id`` / ``section_anchor`` was retrieved,
+#      (2) a quoted snippet is a substring of that chunk's ``text``,
+#      (3) a cited tool output matches a logged, executed tool call.
+# ---------------------------------------------------------------------------
+
+
+class TraceChunk(_StrictModel):
+    """A RAG chunk the agent saw. ``text`` is exactly what the model was shown."""
+
+    chunk_id: str
+    doc_id: str
+    section_anchor: str
+    text: str
+    query: str  # the search query that first retrieved this chunk
+    iteration: int = Field(ge=1)
+
+
+class TraceSearch(_StrictModel):
+    """One ``search_runbooks`` call, including searches that found nothing."""
+
+    query: str
+    iteration: int = Field(ge=1)
+    refs: list[str] = Field(default_factory=list)  # "<doc_id>#<section_anchor>"; empty = below threshold
+
+
+class TraceToolCall(_StrictModel):
+    """One executed MCP tool call. Calls that were rejected before execution are not logged."""
+
+    tool_name: str
+    arguments: dict[str, Any]
+    output: Any  # JSON-serialisable tool result, or the error text when ``is_error``
+    is_error: bool = False
+    iteration: int = Field(ge=1)
+
+
+class BlockedDraft(_StrictModel):
+    """A final answer the guardrail rejected (feeds the Guardrail Catch Rate metric)."""
+
+    iteration: int = Field(ge=1)
+    draft: dict[str, Any]
+    violations: list[str]
+
+
+class SessionTrace(_StrictModel):
+    session_id: str
+    user_input: str
+    model: str
+    max_iterations: int = Field(ge=1)
+    started_at: str
+    finished_at: Optional[str] = None
+    llm_calls: int = 0
+    retrieved_chunks: list[TraceChunk] = Field(default_factory=list)
+    searches: list[TraceSearch] = Field(default_factory=list)
+    tool_calls: list[TraceToolCall] = Field(default_factory=list)
+    blocked_drafts: list[BlockedDraft] = Field(default_factory=list)
+    # "final_answer" | "iteration_cap" | "invalid_output" | "guardrail_blocked" | "error" (LLM, MCP or retriever failure)
+    termination: Optional[str] = None
+    final_status: Optional[Literal["DIAGNOSED", "INSUFFICIENT_EVIDENCE"]] = None
+
+    def retrieved_doc_ids(self) -> set[str]:
+        return {c.doc_id for c in self.retrieved_chunks}
+
+    def chunks_for(self, doc_id: str, section_anchor: str) -> list[TraceChunk]:
+        """Every retrieved chunk behind a citation (empty if it was never retrieved).
+
+        A long section is split into several chunks sharing one anchor, so a
+        quoted snippet must be checked against all of them.
+        """
+        return [
+            c
+            for c in self.retrieved_chunks
+            if c.doc_id == doc_id and c.section_anchor == section_anchor
+        ]
+
+    def calls_for(self, tool_name: str) -> list[TraceToolCall]:
+        return [c for c in self.tool_calls if c.tool_name == tool_name]
