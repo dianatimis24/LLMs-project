@@ -72,6 +72,7 @@ DEFAULT_TRACE_DIR = Path("results/traces")
 SEARCH_TOOL = "search_runbooks"
 
 Guardrail = Callable[[DiagnosisOutput, SessionTrace], list[str]]
+InputGuardrail = Callable[[str], Any]
 
 # ---------------------------------------------------------------------------
 # Interfaces
@@ -389,6 +390,7 @@ class RootCauseAgent:
         retrieval_mode: str = "hybrid",
         top_k: int = 3,
         guardrail: Guardrail | None = None,
+        input_guardrail: InputGuardrail | None = None,
         trace_dir: Path | str | None = None,
     ) -> None:
         if max_iterations < 1:
@@ -400,6 +402,7 @@ class RootCauseAgent:
         self.retrieval_mode = retrieval_mode
         self.top_k = top_k
         self.guardrail = guardrail
+        self.input_guardrail = input_guardrail
         self.trace_dir = Path(trace_dir) if trace_dir else None
         self._specs: list[ToolSpec] | None = None
 
@@ -439,6 +442,15 @@ class RootCauseAgent:
         if not user_input or not user_input.strip():
             trace.termination = "invalid_output"
             return self._abstain("the input is empty", trace)
+
+        if self.input_guardrail is not None:
+            check = self.input_guardrail(user_input)
+            if not check.allowed:
+                reason = "; ".join(check.violations) or "rejected by input guardrail"
+                trace.termination = "input_blocked"
+                logger.warning("[%s] input blocked: %s", trace.session_id, reason)
+                return self._abstain(f"input blocked by guardrail: {reason}", trace)
+            user_input = check.sanitized_input
 
         if self._specs is None:
             self._specs = await self.tools.list_tools()
@@ -693,6 +705,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=["hybrid", "dense"], default="hybrid", help="retrieval mode")
     parser.add_argument("--trace-dir", default=str(DEFAULT_TRACE_DIR), help="where to write the session trace JSON")
     parser.add_argument("--no-trace", action="store_true", help="do not write a trace file")
+    parser.add_argument(
+        "--disable-guardrails",
+        action="store_true",
+        help="disable input and output guardrails (used for Experiment 2 ablation)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     return parser
 
@@ -718,6 +735,15 @@ def run_cli(argv: list[str] | None = None) -> int:
     except LLMConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    if args.disable_guardrails:
+        input_guardrail = None
+        output_guardrail = None
+    else:
+        from src.guardrails import sanitize_and_validate_input, verify_diagnosis_output
+
+        input_guardrail = sanitize_and_validate_input
+        output_guardrail = verify_diagnosis_output
+
     result = asyncio.run(
         diagnose(
             user_input,
@@ -725,6 +751,8 @@ def run_cli(argv: list[str] | None = None) -> int:
             retriever=get_retriever(args.chunking),
             max_iterations=args.max_iterations,
             retrieval_mode=args.mode,
+            guardrail=output_guardrail,
+            input_guardrail=input_guardrail,
             trace_dir=None if args.no_trace else args.trace_dir,
         )
     )
