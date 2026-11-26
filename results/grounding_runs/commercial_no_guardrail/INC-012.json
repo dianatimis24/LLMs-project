@@ -1,0 +1,90 @@
+{
+  "case_id": "INC-012",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "Insufficient evidence gathered to provide a verified remediation path.",
+    "remediation_steps": [
+      "Check Redis memory usage and maxmemory configuration.",
+      "Review recent cart storage code refactorings for memory leaks."
+    ]
+  },
+  "trace": {
+    "session_id": "0d7ad93ae9f2",
+    "user_input": "Since this morning customers can't add anything to their cart: POST /cart/items returns 500, but viewing existing carts still works. CartService logs say 'OOM command not allowed'. The Redis memory graph has been climbing steadily for about two weeks, since we refactored the cart storage code. What is going on and how do we fix it safely?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:03:44.422288+00:00",
+    "finished_at": "2026-11-26T18:04:09.825343+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "RUNBOOK-CACHE-01::header::Common-Error-Signatures::1",
+        "doc_id": "RUNBOOK-CACHE-01",
+        "section_anchor": "Common-Error-Signatures",
+        "text": "## Common Error Signatures  \n### OOM Command Not Allowed  \n```text\nredis.exceptions.ResponseError: OOM command not allowed when used memory > 'maxmemory'.\nat CartService.cart_store.save_cart()\n```  \n- **Error code:** `OOM`\n- **Exception class:** `redis.exceptions.ResponseError`\n- **Typical symptom:** Customers cannot add items to their cart (HTTP 500 on `POST /cart/items`), while reading existing carts still works.",
+        "query": "CartService OOM command not allowed Redis memory cart storage",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-CACHE-01::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-CACHE-01",
+        "section_anchor": "Service-Overview",
+        "text": "# Redis OOM Command Not Allowed in CartService  \n## Service Overview  \nCartService stores shopping carts in `CartCache`, a Redis instance owned by Cart-Team. `CartCache` is configured with `maxmemory 2gb` and `maxmemory-policy noeviction`, chosen so that carts are never silently dropped. With `noeviction`, Redis rejects every write once memory is full.",
+        "query": "CartService OOM command not allowed Redis memory cart storage",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "PM-2026-01::header::Playbook-Remediation::3",
+        "doc_id": "PM-2026-01",
+        "section_anchor": "Playbook-Remediation",
+        "text": "## Playbook Remediation  \n### Immediate Mitigation  \n1. The archive job was paused. Lag recovered within 35 minutes.\n2. Order-history reads were temporarily routed to the primary through a feature flag.\n3. Progress was tracked on the primary:  \n```sql\nSELECT client_addr, state, write_lag, flush_lag, replay_lag\nFROM pg_stat_replication;\n```  \n### Follow-up Actions  \n1. Rewrite the archive job to process rows in batches of 10,000 with a pause between batches, keeping WAL generation steady.\n2. Make the read router fall back to the primary when lag exceeds 5 seconds, and always read a just-created order from the primary.\n3. Move the replica to storage matching the primary's IOPS.\n4. Add an alert when `replay_lag` stays above 30 seconds for 5 minutes.",
+        "query": "RUNBOOK-CACHE-01 remediation increase memory flush",
+        "iteration": 2
+      }
+    ],
+    "searches": [
+      {
+        "query": "CartService OOM command not allowed Redis memory cart storage",
+        "iteration": 1,
+        "refs": [
+          "RUNBOOK-CACHE-01#Common-Error-Signatures",
+          "RUNBOOK-CACHE-01#Service-Overview"
+        ]
+      },
+      {
+        "query": "RUNBOOK-CACHE-01 remediation increase memory flush",
+        "iteration": 2,
+        "refs": [
+          "PM-2026-01#Playbook-Remediation"
+        ]
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {},
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nservice\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {},
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nservice\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 2
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {},
+        "output": "1 validation error for call[_mcp_validate_remediation_command]\ncommand\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 2
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

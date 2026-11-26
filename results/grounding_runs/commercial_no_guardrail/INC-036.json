@@ -1,0 +1,104 @@
+{
+  "case_id": "INC-036",
+  "output": {
+    "status": "DIAGNOSED",
+    "proposed_root_cause": [
+      {
+        "claim": "AuthService removed the previous key from the JWKS at the same time as the rotation, so already logged-in users whose tokens were signed with the old key get 401s because the key can no longer be verified.",
+        "rag_citations": [
+          {
+            "rag_doc_id": "RUNBOOK-API-02",
+            "section_anchor": "Root-Cause-Analysis",
+            "quoted_snippet": "AuthService removed the previous key from the JWKS at the same time as the rotation. Tokens signed with it are still valid for up to 1 hour but can no longer be verified, so already logged-in users get 401."
+          }
+        ],
+        "tool_citations": [
+          {
+            "tool_name": "check_service_dependencies",
+            "tool_args": {
+              "service_name": "AuthService"
+            },
+            "output_summary": "Retrieved downstream and upstream service dependencies including APIGateway."
+          }
+        ]
+      }
+    ],
+    "confidence_note": "The root cause and mechanism are verified by the retrieved runbook documentation for RUNBOOK-API-02, matching the exact symptom described. Live metrics or logs were not queried as per environment constraints.",
+    "remediation_steps": [
+      "curl -s https://auth-service.identity.svc/.well-known/jwks.json"
+    ]
+  },
+  "trace": {
+    "session_id": "ad6ba15a0fda",
+    "user_input": "Right after AuthService rotated its signing keys, users who were already logged in started getting 401 on every request from the gateway, even though their tokens are less than an hour old. People who log in fresh are fine. What went wrong with the rotation?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:07:15.074419+00:00",
+    "finished_at": "2026-11-26T18:07:44.825986+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "RUNBOOK-API-02::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-API-02",
+        "section_anchor": "Service-Overview",
+        "text": "# JWT RS256 Key Rotation Mismatch Causes HTTP 401  \n## Service Overview  \nAuthService, owned by Identity-Team, issues JWT access tokens signed with RS256. Each token header contains a `kid` (key ID) naming the signing key. APIGateway, owned by Platform-Team, verifies every token with the public keys published at AuthService's JWKS endpoint (`/.well-known/jwks.json`) and caches them for 24 hours. Access tokens are valid for 1 hour.",
+        "query": "AuthService signing keys rotation 401 gateway",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-API-02::header::Root-Cause-Analysis::2",
+        "doc_id": "RUNBOOK-API-02",
+        "section_anchor": "Root-Cause-Analysis",
+        "text": "## Root Cause Analysis  \n### Gateway JWKS Cache Outlived the Rotation  \n- **Mechanism:** AuthService published a new key and started signing tokens with it immediately. APIGateway still had the old JWKS cached for up to 24 hours and does not refresh it when it sees an unknown `kid`. Every newly issued token is rejected.\n- **How to confirm:** The new `kid` is published by AuthService but missing from the gateway's cached set:  \n```bash\ncurl -s https://auth-service.identity.svc/.well-known/jwks.json\n```  \nThe `kid` in the gateway warning appears in this output.  \n### Old Key Removed Before Tokens Expired  \n- **Mechanism:** AuthService removed the previous key from the JWKS at the same time as the rotation. Tokens signed with it are still valid for up to 1 hour but can no longer be verified, so already logged-in users get 401.\n- **How to confirm:** The `kid` in the failing tokens' headers is no longer listed in the JWKS output.",
+        "query": "AuthService signing keys rotation 401 gateway",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-API-03::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-API-03",
+        "section_anchor": "Service-Overview",
+        "text": "# HTTP 502 from TLS Handshake Failure Between Gateway and AuthService  \n## Service Overview  \nAPIGateway, owned by Platform-Team, proxies `/v1/login` and other authentication routes to AuthService over HTTPS on port 8443. AuthService's server certificate is issued by the internal certificate authority. APIGateway verifies the certificate on every new upstream connection and returns `502 Bad Gateway` when the TLS handshake fails.",
+        "query": "AuthService signing keys rotation 401 gateway",
+        "iteration": 1
+      }
+    ],
+    "searches": [
+      {
+        "query": "AuthService signing keys rotation 401 gateway",
+        "iteration": 1,
+        "refs": [
+          "RUNBOOK-API-02#Service-Overview",
+          "RUNBOOK-API-02#Root-Cause-Analysis",
+          "RUNBOOK-API-03#Service-Overview"
+        ]
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "AuthService"
+        },
+        "output": [
+          {
+            "service": "UserDB",
+            "relationship": "depends_on",
+            "call_type": "sync",
+            "timeout_ms": 1000
+          },
+          {
+            "service": "APIGateway",
+            "relationship": "depended_on_by",
+            "call_type": "sync",
+            "timeout_ms": 3000
+          }
+        ],
+        "is_error": false,
+        "iteration": 1
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "DIAGNOSED"
+  }
+}

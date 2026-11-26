@@ -1,0 +1,114 @@
+{
+  "case_id": "INC-029",
+  "output": {
+    "status": "DIAGNOSED",
+    "proposed_root_cause": [
+      {
+        "claim": "ImageService writes temporary files to `/tmp` during resize jobs. When resize fails, these temporary files are not cleaned up, filling the node disk and causing kubelet to evict pods due to ephemeral-storage depletion and resulting in DiskPressure.",
+        "rag_citations": [
+          {
+            "rag_doc_id": "RUNBOOK-INFRA-03",
+            "section_anchor": "Root-Cause-Analysis",
+            "quoted_snippet": "ImageService deletes temporary files only after a successful resize. When a resize fails (corrupt or very large uploads), the temporary file stays in `/tmp`. Over days, failed jobs fill the node disk until the kubelet starts evicting pods."
+          }
+        ],
+        "tool_citations": [
+          {
+            "tool_name": "search_runbooks",
+            "tool_args": {
+              "query": "image-service worker-node DiskPressure eviction"
+            },
+            "output_summary": "Returned RUNBOOK-INFRA-03 chunks describing pod eviction due to ephemeral-storage low on resource and temporary files not cleaned up."
+          }
+        ]
+      }
+    ],
+    "confidence_note": "The root cause and diagnostic commands are verified by the retrieved runbook and tool outputs. Actual node disk metrics or live exec remediation commands are not available, so remediation steps are limited to inspection commands verified by allowlist tools.",
+    "remediation_steps": [
+      "kubectl get pods -n media --field-selector=status.phase=Failed",
+      "kubectl describe node worker-node-3"
+    ]
+  },
+  "trace": {
+    "session_id": "02246600c8d8",
+    "user_input": "image-service pods on worker-node-3 were evicted and the node now shows DiskPressure. What is the fastest way to get the node healthy again without touching the other services?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:06:01.486374+00:00",
+    "finished_at": "2026-11-26T18:06:15.306305+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "RUNBOOK-INFRA-03::header::Common-Error-Signatures::1",
+        "doc_id": "RUNBOOK-INFRA-03",
+        "section_anchor": "Common-Error-Signatures",
+        "text": "## Common Error Signatures  \n### Pod Evicted for Ephemeral Storage  \n```text\n$ kubectl describe pod image-service-5f7b8d9c4-p8w2m -n media\nStatus:   Failed\nReason:   Evicted\nMessage:  The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 7%.\nContainer image-service was using 18Gi, request is 0, has larger consumption of ephemeral-storage.\n```  \n- **Error code:** `Evicted`\n- **Typical symptom:** Pods on the same node are evicted, including unrelated services. The node reports the condition `DiskPressure=True` and gets a `node.kubernetes.io/disk-pressure` taint, so no new pods are scheduled on it.",
+        "query": "image-service worker-node DiskPressure eviction",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-INFRA-03::header::Root-Cause-Analysis::2",
+        "doc_id": "RUNBOOK-INFRA-03",
+        "section_anchor": "Root-Cause-Analysis",
+        "text": "## Root Cause Analysis  \n### Temporary Files Not Cleaned Up  \n- **Mechanism:** ImageService deletes temporary files only after a successful resize. When a resize fails (corrupt or very large uploads), the temporary file stays in `/tmp`. Over days, failed jobs fill the node disk until the kubelet starts evicting pods.\n- **How to confirm:** The eviction message names `image-service` as the largest consumer, and the node shows disk pressure:  \n```bash\nkubectl get pods -n media --field-selector=status.phase=Failed\nkubectl describe node worker-node-3\n```  \n### No Ephemeral Storage Limits  \n- **Mechanism:** Without `ephemeral-storage` limits, one pod can consume the whole node disk, and the kubelet evicts pods across the node instead of only the one at fault.",
+        "query": "image-service worker-node DiskPressure eviction",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-INFRA-03::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-INFRA-03",
+        "section_anchor": "Service-Overview",
+        "text": "# Pod Eviction Due to Node Disk Pressure  \n## Service Overview  \nImageService, owned by Media-Team, resizes product images uploaded by sellers. It writes temporary files to `/tmp`, which is backed by the node's ephemeral storage. The kubelet evicts pods when free space on the node filesystem drops below 10% (`evictionHard: nodefs.available<10%`). ImageService pods do not set `ephemeral-storage` requests or limits.",
+        "query": "image-service worker-node DiskPressure eviction",
+        "iteration": 1
+      }
+    ],
+    "searches": [
+      {
+        "query": "image-service worker-node DiskPressure eviction",
+        "iteration": 1,
+        "refs": [
+          "RUNBOOK-INFRA-03#Common-Error-Signatures",
+          "RUNBOOK-INFRA-03#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-03#Service-Overview"
+        ]
+      },
+      {
+        "query": "RUNBOOK-INFRA-03 remediation cleanup disk pressure",
+        "iteration": 2,
+        "refs": []
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl get pods -n media --field-selector=status.phase=Failed"
+        },
+        "output": {
+          "allowed": true,
+          "reason": "Allowed: matches allowlisted prefix 'kubectl get'.",
+          "matched_rule": "kubectl get "
+        },
+        "is_error": false,
+        "iteration": 2
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "kubectl describe node worker-node-3"
+        },
+        "output": {
+          "allowed": true,
+          "reason": "Allowed: matches allowlisted prefix 'kubectl describe'.",
+          "matched_rule": "kubectl describe "
+        },
+        "is_error": false,
+        "iteration": 2
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "DIAGNOSED"
+  }
+}

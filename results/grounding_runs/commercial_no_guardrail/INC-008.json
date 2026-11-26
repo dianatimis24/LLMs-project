@@ -1,0 +1,171 @@
+{
+  "case_id": "INC-008",
+  "output": {
+    "status": "DIAGNOSED",
+    "proposed_root_cause": [
+      {
+        "claim": "Replication lag on OrdersDBReplica grew significantly because a nightly archive job generated a large WAL burst that the replica's lower-IOPS disk could not replay quickly enough.",
+        "rag_citations": [
+          {
+            "rag_doc_id": "PM-2026-01",
+            "section_anchor": "Root-Cause-Analysis",
+            "quoted_snippet": "The nightly archive job moved 4 million completed orders to an archive table using a single large `UPDATE` and `DELETE`. This generated about 40 GB of WAL in under 20 minutes. The replica runs on a disk with lower IOPS than the primary and could not replay WAL fast enough, so replay fell further behind for over an hour."
+          }
+        ],
+        "tool_citations": []
+      },
+      {
+        "claim": "OrderService's read router logged warnings when replica lag exceeded 5 seconds but continued to route fresh order reads to the lagging replica, causing 404 Not Found responses on the order confirmation page.",
+        "rag_citations": [
+          {
+            "rag_doc_id": "PM-2026-01",
+            "section_anchor": "Common-Error-Signatures",
+            "quoted_snippet": "WARN  OrderService.read_router: replica lag 94.2s exceeds threshold 5s, routing anyway\nINFO  GET /orders/7f3a9c21 -> 404 Not Found (order not found)"
+          },
+          {
+            "rag_doc_id": "PM-2026-01",
+            "section_anchor": "Root-Cause-Analysis",
+            "quoted_snippet": "OrderService's read router logged a warning when lag exceeded 5 seconds but still sent reads to the replica. There was no fallback to the primary for reads that must see the caller's own recent writes."
+          }
+        ],
+        "tool_citations": [
+          {
+            "tool_name": "check_service_dependencies",
+            "tool_args": {
+              "service_name": "OrderService"
+            },
+            "output_summary": "OrderService depends on OrdersDB and OrdersDBReplica synchronously with 5000ms timeout."
+          }
+        ]
+      }
+    ],
+    "confidence_note": "The service dependencies and historical root cause pattern are verified via tool outputs and post-mortem documentation (PM-2026-01). Real-time replica lag and current request tracing are consistent with the historical incident pattern but require live metrics to verify.",
+    "remediation_steps": [
+      "SELECT now() - pg_last_xact_replay_timestamp() AS replay_lag;"
+    ]
+  },
+  "trace": {
+    "session_id": "236d06f838d5",
+    "user_input": "Customers who just placed an order in OrderService are getting 404 Not Found on the confirmation page (GET /orders/{id}), even though the order exists in OrdersDB primary. Logs show OrderService.read_router warning that replica lag exceeds 5s.",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:03:09.635287+00:00",
+    "finished_at": "2026-11-26T18:03:28.611525+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "PM-2026-01::header::Common-Error-Signatures::1",
+        "doc_id": "PM-2026-01",
+        "section_anchor": "Common-Error-Signatures",
+        "text": "## Common Error Signatures  \n### Replica Lag Warnings and 404 on Fresh Orders  \n```text\nWARN  OrderService.read_router: replica lag 94.2s exceeds threshold 5s, routing anyway\nINFO  GET /orders/7f3a9c21 -> 404 Not Found (order not found)\n```  \n- **Observed:** Replication lag on `OrdersDBReplica` grew from under 1 second to a peak of 11 minutes.\n- **Observed:** Orders were written successfully on the primary; only reads from the replica were missing them.",
+        "query": "OrderService 404 replica lag confirmation page",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "PM-2026-01::header::Service-Overview::0",
+        "doc_id": "PM-2026-01",
+        "section_anchor": "Service-Overview",
+        "text": "# Post-Mortem: Read Replica Replication Lag Causes Missing Orders  \n## Service Overview  \n- **Incident date:** 2026-03-18, 01:40-02:55 UTC (75 minutes)\n- **Affected service:** OrderService, which sends writes to the `OrdersDB` primary and order-history reads to the `OrdersDBReplica` streaming replica.\n- **Impact:** Customers who placed an order were told it did not exist when they opened the confirmation page. About 2,300 `GET /orders/{id}` requests returned 404, and support received 140 tickets about missing orders.",
+        "query": "OrderService 404 replica lag confirmation page",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "PM-2026-01::header::Root-Cause-Analysis::2",
+        "doc_id": "PM-2026-01",
+        "section_anchor": "Root-Cause-Analysis",
+        "text": "## Root Cause Analysis  \n### WAL Burst from the Nightly Archive Job  \nThe nightly archive job moved 4 million completed orders to an archive table using a single large `UPDATE` and `DELETE`. This generated about 40 GB of WAL in under 20 minutes. The replica runs on a disk with lower IOPS than the primary and could not replay WAL fast enough, so replay fell further behind for over an hour.  \nHow it was confirmed, on the replica:  \n```sql\nSELECT now() - pg_last_xact_replay_timestamp() AS replay_lag;\n```  \n### Read Router Ignored Lag  \nOrderService's read router logged a warning when lag exceeded 5 seconds but still sent reads to the replica. There was no fallback to the primary for reads that must see the caller's own recent writes.",
+        "query": "OrderService 404 replica lag confirmation page",
+        "iteration": 1
+      }
+    ],
+    "searches": [
+      {
+        "query": "OrderService 404 replica lag confirmation page",
+        "iteration": 1,
+        "refs": [
+          "PM-2026-01#Common-Error-Signatures",
+          "PM-2026-01#Service-Overview",
+          "PM-2026-01#Root-Cause-Analysis"
+        ]
+      },
+      {
+        "query": "OrderService read_router replica lag OrdersDB",
+        "iteration": 1,
+        "refs": [
+          "PM-2026-01#Common-Error-Signatures",
+          "PM-2026-01#Root-Cause-Analysis",
+          "PM-2026-01#Service-Overview"
+        ]
+      },
+      {
+        "query": "PM-2026-01 Remediation action items",
+        "iteration": 2,
+        "refs": []
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "OrderService"
+        },
+        "output": [
+          {
+            "service": "OrdersDB",
+            "relationship": "depends_on",
+            "call_type": "sync",
+            "timeout_ms": 5000
+          },
+          {
+            "service": "OrdersDBReplica",
+            "relationship": "depends_on",
+            "call_type": "sync",
+            "timeout_ms": 5000
+          },
+          {
+            "service": "PaymentGateway",
+            "relationship": "depends_on",
+            "call_type": "sync",
+            "timeout_ms": 4000
+          },
+          {
+            "service": "InventoryService",
+            "relationship": "depends_on",
+            "call_type": "sync",
+            "timeout_ms": 2000
+          },
+          {
+            "service": "Kafka",
+            "relationship": "depends_on",
+            "call_type": "async",
+            "timeout_ms": null
+          },
+          {
+            "service": "APIGateway",
+            "relationship": "depended_on_by",
+            "call_type": "sync",
+            "timeout_ms": 5000
+          }
+        ],
+        "is_error": false,
+        "iteration": 1
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "SELECT now() - pg_last_xact_replay_timestamp() AS replay_lag;"
+        },
+        "output": {
+          "allowed": true,
+          "reason": "Allowed: matches allowlisted prefix 'SELECT'.",
+          "matched_rule": "SELECT "
+        },
+        "is_error": false,
+        "iteration": 2
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "DIAGNOSED"
+  }
+}

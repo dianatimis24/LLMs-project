@@ -1,0 +1,38 @@
+{
+  "case_id": "INC-027",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "No relevant runbooks or tool outputs were found to verify the cause of the 403 AccessDenied error.",
+    "remediation_steps": [
+      "Verify CDN origin access identity and IAM policies manually.",
+      "Check bucket ACLs and CORS configuration manually."
+    ]
+  },
+  "trace": {
+    "session_id": "e18b22910fff",
+    "user_input": "Product images on the category pages return 403 AccessDenied from the image CDN since about 09:00 UTC. The bucket policy was not changed and the origin files are still there.",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:05:29.919109+00:00",
+    "finished_at": "2026-11-26T18:05:45.880610+00:00",
+    "llm_calls": 2,
+    "retrieved_chunks": [],
+    "searches": [
+      {
+        "query": "403 AccessDenied image CDN bucket policy origin files",
+        "iteration": 1,
+        "refs": []
+      },
+      {
+        "query": "category pages product images CDN AccessDenied",
+        "iteration": 1,
+        "refs": []
+      }
+    ],
+    "tool_calls": [],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}
