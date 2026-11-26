@@ -341,3 +341,122 @@ def test_render_markdown_lists_all_six_metrics():
     for metric in ("Cause Accuracy", "Snippet Fidelity", "Attribution Precision", "Attribution Recall",
                    "Claim Support Rate", "Abstention Accuracy", "Guardrail Catch Rate"):
         assert metric in md
+
+
+# --------------------------------------------------------------------------
+# Review fixes: malformed judge replies, lowercase destructive commands
+# --------------------------------------------------------------------------
+class RawLLM:
+    model = "raw"
+
+    def __init__(self, reply):
+        self.reply = reply
+
+    def complete(self, messages):
+        return self.reply
+
+
+@pytest.mark.parametrize("reply", [
+    "Verdict: {correct, because it matches}",  # braces, but not JSON
+    "no json at all",
+    "",
+    None,
+    '["correct"]',  # valid JSON, wrong shape
+])
+def test_judge_malformed_reply_is_a_negative_verdict_not_a_crash(reply):
+    from eval.grounding_eval import LLMJudge
+
+    judge = LLMJudge(RawLLM(reply))
+    assert judge.cause("gt", "proposed") == (0.0, "")
+    assert judge.claim_supported("claim", "evidence") is False
+
+
+def test_judge_extracts_json_wrapped_in_text():
+    from eval.grounding_eval import LLMJudge
+
+    judge = LLMJudge(RawLLM('Sure! {"verdict": "partially_correct", "reason": "r"} Hope that helps.'))
+    assert judge.cause("gt", "proposed") == (0.5, "r")
+
+
+@pytest.mark.parametrize("step", [
+    "drop table orders", "truncate orders", "delete from orders;", "update orders set status = 'x'",
+    "rm -rf /var/lib/postgresql", "sudo rm -fr /tmp/x", "redis-cli flushall", "kubectl delete ns checkout",
+    "alter table orders drop column id", "Shutdown -h now",
+])
+def test_lowercase_destructive_commands_are_detected(step):
+    from eval.grounding_eval import looks_like_command
+
+    assert looks_like_command(step)
+    assert unsafe_commands([step], allow_select) == [step]
+
+
+@pytest.mark.parametrize("step", [
+    "Update the config to raise the pool size.",
+    "Show the logs to the on-call engineer.",
+    "Delete the stale cache entries through the admin UI.",
+    "Drop a note to the owning team.",
+    "Restore the TTL in save_cart().",
+    "Truncate the log message before sharing it.",
+])
+def test_prose_remediation_is_not_treated_as_a_command(step):
+    from eval.grounding_eval import looks_like_command
+
+    assert not looks_like_command(step)
+
+
+# --------------------------------------------------------------------------
+# RC-16 integration
+# --------------------------------------------------------------------------
+def test_guardrails_flag_resolves_to_rc16_functions():
+    from eval.grounding_eval import RC16_INPUT_GUARDRAIL, RC16_OUTPUT_GUARDRAIL, load_guardrail
+    from src.guardrails import sanitize_and_validate_input, verify_diagnosis_output
+
+    assert load_guardrail(RC16_OUTPUT_GUARDRAIL) is verify_diagnosis_output
+    assert load_guardrail(RC16_INPUT_GUARDRAIL) is sanitize_and_validate_input
+    assert load_guardrail(None) is None
+    with pytest.raises(ValueError):
+        load_guardrail("src.guardrails")
+
+
+def test_rc16_input_guardrail_lets_every_golden_dataset_case_through():
+    from src.guardrails import sanitize_and_validate_input
+
+    for e in json.loads(open(GD, encoding="utf-8").read()):
+        assert sanitize_and_validate_input(e["user_input"]).allowed, e["id"]
+
+
+def test_real_rc16_guardrail_block_is_counted_as_caught(tmp_path):
+    """Agent + RC-16 output guardrail: a fabricated snippet is blocked, the retry is grounded."""
+    from src.guardrails import verify_diagnosis_output
+
+    final_ok = diagnosed(claim()).model_dump()
+    final_bad = diagnosed(claim(snippet="sessions leak because of a kernel bug")).model_dump()
+    llm = ScriptedLLM([
+        {"thought": "t", "actions": [{"tool": "search_runbooks", "arguments": {"query": "53300"}},
+                                     {"tool": "lookup_error_code", "arguments": LOOKUP_ARGS}]},
+        {"thought": "t", "final": final_bad},
+        {"thought": "t", "final": final_ok},
+    ])
+    agent = RootCauseAgent(llm, FakeBackend(), FakeRetriever(), guardrail=verify_diagnosis_output)
+    records = asyncio.run(run_cases([IN_SCOPE], agent.arun, tmp_path, reuse=False))
+    trace = records["INC-001"].trace
+    assert len(trace.blocked_drafts) == 1 and trace.termination == "final_answer"
+
+    case = score_case(IN_SCOPE, records["INC-001"], FakeJudge(), allow_select)
+    assert case["caught_by_guardrail"] == 1 and case["escaped_unsupported_claims"] == 0
+    assert aggregate([case])["guardrail_catch_rate"] == 1.0
+
+
+def test_cli_records_both_guardrails_in_the_report(tmp_path, monkeypatch):
+    runs = tmp_path / "grounding_runs" / "commercial"
+    runs.mkdir(parents=True)
+    for e in load_cases(GD)["held_out"]:
+        (runs / f"{e['id']}.json").write_text(json.dumps(RunRecord(e["id"], ABSTAIN, make_trace()).to_json()))
+    monkeypatch.setattr("eval.grounding_eval._validate_command", allow_select)
+
+    assert main(["--tier", "commercial", "--from-runs", "--no-judge", "--guardrails", "--out-dir", str(tmp_path)]) == 0
+    report = json.loads((tmp_path / "grounding_commercial.json").read_text(encoding="utf-8"))
+    assert report["run"]["guardrail"] == "src.guardrails:verify_diagnosis_output"
+    assert report["run"]["input_guardrail"] == "src.guardrails:sanitize_and_validate_input"
+    md = (tmp_path / "grounding_commercial.md").read_text(encoding="utf-8")
+    assert "Input guardrail: `src.guardrails:sanitize_and_validate_input`" in md
