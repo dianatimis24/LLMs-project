@@ -50,6 +50,7 @@ Usage:
     # ROOTCAUSE_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/,
     # ROOTCAUSE_LLM_MODEL=<gemini model name>; the judge follows the same settings.
     python -m eval.grounding_eval --tier commercial --from-runs           # re-score only
+    python -m eval.grounding_eval --tier commercial --rpm 8               # stay under a free-tier quota
 """
 
 from __future__ import annotations
@@ -61,6 +62,8 @@ import json
 import logging
 import re
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable, Protocol, Sequence
@@ -519,8 +522,104 @@ def render_markdown(report: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 Runner = Callable[[str], Awaitable[Any]]  # user_input -> AgentResult (output, trace)
 
+TRANSIENT_STATUS = frozenset({408, 409, 429, 500, 502, 503, 504})
+DEFAULT_MAX_RETRIES = 5
+RETRY_BASE_DELAY = 15.0  # seconds; doubles per attempt, capped at RETRY_MAX_DELAY
+RETRY_MAX_DELAY = 120.0
 
-async def run_cases(entries: Sequence[dict], runner: Runner, runs_dir: Path | None, reuse: bool) -> dict[str, RunRecord]:
+
+def is_transient(exc: BaseException) -> bool:
+    """Provider overload, rate limit, timeout or dropped connection: worth retrying the case.
+
+    Authentication errors, bad requests and unknown models are not transient and fail fast.
+    """
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status in TRANSIENT_STATUS
+    return type(exc).__name__ in {"APIConnectionError", "APITimeoutError", "RateLimitError", "InternalServerError"}
+
+
+def provider_message(exc: BaseException, limit: int = 400) -> str:
+    """The provider's own explanation (e.g. which quota was exceeded), shortened for the log."""
+    body = getattr(exc, "body", None)
+    if isinstance(body, list) and body:
+        body = body[0]
+    if isinstance(body, dict):
+        body = body.get("error", body)
+        text = body.get("message", body) if isinstance(body, dict) else body
+    else:
+        text = body or str(exc)
+    return " ".join(str(text).split())[:limit]
+
+
+class RateLimiter:
+    """Keeps calls at or below ``rpm`` per minute, across threads (agent and judge share one key)."""
+
+    def __init__(self, rpm: float, clock: Callable[[], float] = time.monotonic,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
+        if rpm <= 0:
+            raise ValueError("rpm must be > 0")
+        self.interval = 60.0 / rpm
+        self._clock, self._sleep = clock, sleep
+        self._next = 0.0
+        self._lock = threading.Lock()
+
+    def wait(self) -> None:
+        with self._lock:
+            now = self._clock()
+            if now < self._next:
+                self._sleep(self._next - now)
+                now = self._next
+            self._next = now + self.interval
+
+
+class ThrottledLLM:
+    """Wraps any ``complete(messages)`` client so it waits for the shared rate limiter first."""
+
+    def __init__(self, llm: Any, limiter: RateLimiter) -> None:
+        self.llm, self.limiter = llm, limiter
+        self.model = getattr(llm, "model", type(llm).__name__)
+
+    def complete(self, messages: list[dict[str, str]]) -> str:
+        self.limiter.wait()
+        return self.llm.complete(messages)
+
+
+async def _run_with_retries(
+    runner: Runner,
+    user_input: str,
+    case_id: str,
+    max_retries: int,
+    sleep: Callable[[float], Awaitable[Any]],
+) -> Any:
+    for attempt in range(max_retries + 1):
+        try:
+            return await runner(user_input)
+        except Exception as exc:
+            if attempt >= max_retries or not is_transient(exc):
+                raise
+            delay = min(RETRY_BASE_DELAY * 2**attempt, RETRY_MAX_DELAY)
+            logger.warning(
+                "%s: transient provider error (%s: %s); retrying the case in %.0fs (%d/%d)",
+                case_id, type(exc).__name__, provider_message(exc), delay, attempt + 1, max_retries,
+            )
+            await sleep(delay)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+async def run_cases(
+    entries: Sequence[dict],
+    runner: Runner,
+    runs_dir: Path | None,
+    reuse: bool,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
+) -> dict[str, RunRecord]:
+    """Run every case, saving each finished one so an interrupted run can resume.
+
+    Transient provider errors (overload, rate limit, timeout) restart the case after a
+    backoff, up to ``max_retries`` times; any other error stops the run.
+    """
     records: dict[str, RunRecord] = {}
     for entry in entries:
         path = runs_dir / f"{entry['id']}.json" if runs_dir else None
@@ -528,7 +627,7 @@ async def run_cases(entries: Sequence[dict], runner: Runner, runs_dir: Path | No
             records[entry["id"]] = RunRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
             continue
         logger.info("running %s", entry["id"])
-        result = await runner(entry["user_input"])
+        result = await _run_with_retries(runner, entry["user_input"], entry["id"], max_retries, sleep)
         record = RunRecord(entry["id"], result.output, result.trace)
         records[entry["id"]] = record
         if path:
@@ -595,6 +694,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--out-dir", default="results")
     p.add_argument("--from-runs", action="store_true", help="re-score saved runs only; never call the agent")
     p.add_argument("--rerun", action="store_true", help="run the agent again even when a saved run exists")
+    p.add_argument("--rpm", type=float,
+                   help="max LLM requests per minute, shared by agent and judge (e.g. 8 for a free tier)")
+    p.add_argument("--max-retries", type=int, default=DEFAULT_MAX_RETRIES,
+                   help=f"retries per case on transient provider errors such as 429/503 (default: {DEFAULT_MAX_RETRIES})")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -606,6 +709,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.guardrails:
         args.guardrail = args.guardrail or RC16_OUTPUT_GUARDRAIL
         args.input_guardrail = args.input_guardrail or RC16_INPUT_GUARDRAIL
+    limiter = RateLimiter(args.rpm) if args.rpm else None
     out_dir = Path(args.out_dir)
     runs_dir = out_dir / "grounding_runs" / args.tier
     cases = load_cases(Path(args.gd))
@@ -630,6 +734,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 2
         model = llm.model
+        if limiter:
+            llm = ThrottledLLM(llm, limiter)
 
         async def run_all() -> dict[str, RunRecord]:
             async with MCPStdioBackend() as backend:
@@ -639,7 +745,8 @@ def main(argv: list[str] | None = None) -> int:
                     guardrail=load_guardrail(args.guardrail),
                     input_guardrail=load_guardrail(args.input_guardrail),
                 )
-                return await run_cases(entries, agent.arun, runs_dir, reuse=not args.rerun)
+                return await run_cases(entries, agent.arun, runs_dir, reuse=not args.rerun,
+                                       max_retries=args.max_retries)
 
         records = asyncio.run(run_all())
 
@@ -648,10 +755,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             import os
 
-            judge = LLMJudge(OpenAIChatClient(
+            judge_llm = OpenAIChatClient(
                 args.judge_model or os.getenv("ROOTCAUSE_JUDGE_MODEL"),
                 base_url=args.judge_base_url or os.getenv("ROOTCAUSE_JUDGE_BASE_URL"),
-            ))
+            )
+            judge = LLMJudge(ThrottledLLM(judge_llm, limiter) if limiter else judge_llm)
         except LLMConfigError as exc:
             print(f"error: judge: {exc} (use --no-judge for the rubric only)", file=sys.stderr)
             return 2

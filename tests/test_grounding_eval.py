@@ -460,3 +460,151 @@ def test_cli_records_both_guardrails_in_the_report(tmp_path, monkeypatch):
     assert report["run"]["input_guardrail"] == "src.guardrails:sanitize_and_validate_input"
     md = (tmp_path / "grounding_commercial.md").read_text(encoding="utf-8")
     assert "Input guardrail: `src.guardrails:sanitize_and_validate_input`" in md
+
+
+# --------------------------------------------------------------------------
+# Retries on transient provider errors (e.g. Gemini 503 when overloaded)
+# --------------------------------------------------------------------------
+class StatusError(Exception):
+    def __init__(self, status_code):
+        super().__init__(f"status {status_code}")
+        self.status_code = status_code
+
+
+class FlakyRunner:
+    def __init__(self, failures, result):
+        self.failures, self.result, self.calls = list(failures), result, 0
+
+    async def __call__(self, user_input):
+        self.calls += 1
+        if self.failures:
+            raise self.failures.pop(0)
+        return self.result
+
+
+def make_result():
+    from types import SimpleNamespace
+
+    return SimpleNamespace(output=ABSTAIN, trace=make_trace())
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+def test_transient_errors_retry_the_case_with_backoff(tmp_path, status):
+    sleeps = []
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+
+    runner = FlakyRunner([StatusError(status), StatusError(status)], make_result())
+    records = asyncio.run(run_cases([OUT_OF_SCOPE], runner, tmp_path, reuse=False, max_retries=5, sleep=fake_sleep))
+    assert runner.calls == 3 and sleeps == [15.0, 30.0]
+    assert (tmp_path / "INC-020.json").exists() and records["INC-020"].output.status == "INSUFFICIENT_EVIDENCE"
+
+
+def test_backoff_is_capped():
+    from eval.grounding_eval import RETRY_MAX_DELAY
+
+    sleeps = []
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+
+    runner = FlakyRunner([StatusError(503)] * 5, make_result())
+    asyncio.run(run_cases([OUT_OF_SCOPE], runner, None, reuse=False, max_retries=5, sleep=fake_sleep))
+    assert sleeps == [15.0, 30.0, 60.0, 120.0, RETRY_MAX_DELAY]
+
+
+def test_gives_up_after_max_retries():
+    async def no_sleep(s):
+        pass
+
+    runner = FlakyRunner([StatusError(503)] * 3, make_result())
+    with pytest.raises(StatusError):
+        asyncio.run(run_cases([OUT_OF_SCOPE], runner, None, reuse=False, max_retries=2, sleep=no_sleep))
+    assert runner.calls == 3
+
+
+@pytest.mark.parametrize("exc", [StatusError(400), StatusError(401), StatusError(404), ValueError("bug")])
+def test_non_transient_errors_fail_fast(exc):
+    async def no_sleep(s):
+        raise AssertionError("must not retry")
+
+    runner = FlakyRunner([exc], make_result())
+    with pytest.raises(type(exc)):
+        asyncio.run(run_cases([OUT_OF_SCOPE], runner, None, reuse=False, max_retries=5, sleep=no_sleep))
+    assert runner.calls == 1
+
+
+def test_real_openai_503_is_transient():
+    import httpx
+    import openai
+
+    from eval.grounding_eval import is_transient
+
+    request = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+    overloaded = openai.InternalServerError("overloaded", response=httpx.Response(503, request=request), body=None)
+    bad_key = openai.AuthenticationError("bad key", response=httpx.Response(401, request=request), body=None)
+    assert is_transient(overloaded) and is_transient(openai.APIConnectionError(request=request))
+    assert not is_transient(bad_key)
+
+
+# --------------------------------------------------------------------------
+# Rate limiting and provider messages
+# --------------------------------------------------------------------------
+def test_rate_limiter_spaces_calls():
+    from eval.grounding_eval import RateLimiter
+
+    now, sleeps = [100.0], []
+
+    def clock():
+        return now[0]
+
+    def sleep(s):
+        sleeps.append(round(s, 3))
+        now[0] += s
+
+    limiter = RateLimiter(rpm=6, clock=clock, sleep=sleep)  # one call every 10 s
+    for _ in range(3):
+        limiter.wait()
+    assert sleeps == [10.0, 10.0]
+    now[0] += 25  # idle longer than the interval: no wait
+    limiter.wait()
+    assert sleeps == [10.0, 10.0]
+    with pytest.raises(ValueError):
+        RateLimiter(rpm=0)
+
+
+def test_throttled_llm_waits_before_every_call_and_keeps_model_name():
+    from eval.grounding_eval import ThrottledLLM
+
+    class Counter:
+        calls = 0
+
+        def wait(self):
+            self.calls += 1
+
+    limiter = Counter()
+    llm = ThrottledLLM(RawLLM('{"verdict": "correct"}'), limiter)
+    assert llm.model == "raw"
+    llm.complete([]), llm.complete([])
+    assert limiter.calls == 2
+
+
+def test_provider_message_shows_the_quota_reason():
+    import httpx
+    import openai
+
+    from eval.grounding_eval import provider_message
+
+    request = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+    body = [{"error": {"code": 429, "message": "Quota exceeded for metric: generate_content_free_tier_requests, limit: 10 per minute",
+                       "status": "RESOURCE_EXHAUSTED"}}]
+    exc = openai.RateLimitError("Error code: 429", response=httpx.Response(429, request=request), body=body)
+    assert "limit: 10 per minute" in provider_message(exc)
+    assert provider_message(ValueError("plain")) == "plain"
+
+
+def test_cli_accepts_rpm():
+    from eval.grounding_eval import build_arg_parser
+
+    assert build_arg_parser().parse_args(["--tier", "t", "--rpm", "8"]).rpm == 8.0
