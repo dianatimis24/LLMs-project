@@ -1,0 +1,70 @@
+{
+  "case_id": "INC-010",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "No valid tool output or runbook chunks were successfully retrieved.",
+    "remediation_steps": [
+      "Manually check the GraphAnalyticsService logs and Neo4j transaction memory limits."
+    ]
+  },
+  "trace": {
+    "session_id": "dadb506043ea",
+    "user_input": "2026-11-14T07:50:19.220Z ERROR [GraphAnalyticsService] neo4j.exceptions.TransientError: {code: Neo.TransientError.Transaction.LockClientStopped} Lock clientforsession-8821 stopped due to Cypher graph traversal memory limit.",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:03:28.624406+00:00",
+    "finished_at": "2026-11-26T18:03:44.394978+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [],
+    "searches": [],
+    "tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T07:50:19.220Z ERROR [GraphAnalyticsService] neo4j.exceptions.TransientError: {code: Neo.TransientError.Transaction.LockClientStopped} Lock clientforsession-8821 stopped due to Cypher graph traversal memory limit."
+        },
+        "output": {
+          "exception_class": "neo4j.exceptions.TransientError",
+          "service": "GraphAnalyticsService",
+          "failing_file": null,
+          "method": null,
+          "error_code": "Neo.TransientError.Transaction.LockClientStopped"
+        },
+        "is_error": false,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {},
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nservice\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 1
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {},
+        "output": "1 validation error for call[_mcp_check_service_dependencies]\nservice_name\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {},
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nservice\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 2
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {},
+        "output": "1 validation error for call[_mcp_check_service_dependencies]\nservice_name\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 2
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

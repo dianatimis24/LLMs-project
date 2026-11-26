@@ -1,0 +1,44 @@
+{
+  "case_id": "INC-016",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "Insufficient tool output and runbook snippets gathered to verify the exact root cause.",
+    "remediation_steps": [
+      "Check Kafka consumer group lag metrics manually.",
+      "Inspect notification-service logs for consumer rebalance events and poll interval timeouts."
+    ]
+  },
+  "trace": {
+    "session_id": "859bc12d4730",
+    "user_input": "Customers are receiving the same order confirmation email three or four times, and lag on the notification-service consumer group keeps growing. The group seems to rebalance every few minutes. The email provider's status page shows degraded latency today. Why is this happening?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:12:16.130924+00:00",
+    "finished_at": "2026-11-26T18:12:33.060024+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "RUNBOOK-KAFKA-01::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-KAFKA-01",
+        "section_anchor": "Service-Overview",
+        "text": "# Kafka Consumer Rebalance Loop in NotificationService  \n## Service Overview  \nNotificationService consumes the `order-events` topic (12 partitions) in the consumer group `notification-service` and sends order confirmation emails through an external email provider. Consumer settings: `max.poll.records = 500`, `max.poll.interval.ms = 300000` (5 minutes), manual offset commits after each batch.",
+        "query": "notification-service order confirmation email duplicate rebalance consumer group",
+        "iteration": 1
+      }
+    ],
+    "searches": [
+      {
+        "query": "notification-service order confirmation email duplicate rebalance consumer group",
+        "iteration": 1,
+        "refs": [
+          "RUNBOOK-KAFKA-01#Service-Overview"
+        ]
+      }
+    ],
+    "tool_calls": [],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

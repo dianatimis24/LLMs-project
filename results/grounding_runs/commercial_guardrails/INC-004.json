@@ -1,0 +1,136 @@
+{
+  "case_id": "INC-004",
+  "output": {
+    "status": "DIAGNOSED",
+    "proposed_root_cause": [
+      {
+        "claim": "During flash sales, OrderService fails with HTTP 500 and psycopg2.errors.DeadlockDetected (SQLSTATE 40P01) because multi-item orders lock rows in the inventory_reservations table in inconsistent orders across concurrent transactions.",
+        "rag_citations": [
+          {
+            "rag_doc_id": "RUNBOOK-PG-02",
+            "section_anchor": "Common-Error-Signatures",
+            "quoted_snippet": "psycopg2.errors.DeadlockDetected: deadlock detected\nDETAIL:  Process 18342 waits for ShareLock on transaction 99127; blocked by process 18355.\nProcess 18355 waits for ShareLock on transaction 99126; blocked by process 18342.\nHINT:  See server log for query details.\nCONTEXT:  while updating tuple (12,7) in relation \"inventory_reservations\"\nSQLSTATE 40P01\nat OrderService.inventory.reserve_items()"
+          },
+          {
+            "rag_doc_id": "RUNBOOK-PG-02",
+            "section_anchor": "Service-Overview",
+            "quoted_snippet": "OrderService reserves stock for each order by updating rows in the `inventory_reservations` table of `OrdersDB` inside the order transaction. A single order can reserve several SKUs. PostgreSQL checks for deadlocks after `deadlock_timeout = 1s` and aborts one of the transactions involved."
+          }
+        ],
+        "tool_citations": [
+          {
+            "tool_name": "lookup_error_code",
+            "tool_args": {
+              "code": "40P01",
+              "service": "OrderService"
+            },
+            "output_summary": "Found error code 40P01 under Database Concurrency with severity SEV-3, owned by Checkout-DB-Team, and configured with a deadlock_timeout_ms of 1000."
+          }
+        ]
+      }
+    ],
+    "confidence_note": "The root cause and mechanics of the deadlock are verified by the retrieved runbook chunks and error code lookup. The specific remediation script command was not allowed by the command validator, so only safe manual checks and runbook guidance are included in the remediation steps.",
+    "remediation_steps": [
+      "Sort SKUs before locking them, so every transaction locks rows in the same order using ORDER BY sku.",
+      "Retry the whole transaction on 40P01 up to 3 times with jittered backoff (50-200 ms).",
+      "Verify that the deadlocks counter in pg_stat_database stops increasing during the next sale and order error rates return to baseline."
+    ]
+  },
+  "trace": {
+    "session_id": "775b2c3b1f0c",
+    "user_input": "During flash sales on popular products, a small percentage of multi-item orders in OrderService fail with HTTP 500 and psycopg2.errors.DeadlockDetected (SQLSTATE 40P01) on inventory_reservations. Why is this happening and how should we fix it?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:10:30.023908+00:00",
+    "finished_at": "2026-11-26T18:10:54.659385+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "RUNBOOK-PG-02::header::Common-Error-Signatures::1",
+        "doc_id": "RUNBOOK-PG-02",
+        "section_anchor": "Common-Error-Signatures",
+        "text": "## Common Error Signatures  \n### Deadlock Detected While Updating Reservations  \n```text\npsycopg2.errors.DeadlockDetected: deadlock detected\nDETAIL:  Process 18342 waits for ShareLock on transaction 99127; blocked by process 18355.\nProcess 18355 waits for ShareLock on transaction 99126; blocked by process 18342.\nHINT:  See server log for query details.\nCONTEXT:  while updating tuple (12,7) in relation \"inventory_reservations\"\nSQLSTATE 40P01\nat OrderService.inventory.reserve_items()\n```  \n- **Error code:** `40P01` (`deadlock_detected`)\n- **Exception class:** `psycopg2.errors.DeadlockDetected`\n- **Typical symptom:** A small percentage of multi-item orders fail with a 500 error, mostly during flash sales on popular products.",
+        "query": "psycopg2.errors.DeadlockDetected 40P01 OrderService inventory_reservations",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-PG-02::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-PG-02",
+        "section_anchor": "Service-Overview",
+        "text": "# PostgreSQL Deadlock Detected in Stock Reservation  \n## Service Overview  \nOrderService reserves stock for each order by updating rows in the `inventory_reservations` table of `OrdersDB` inside the order transaction. A single order can reserve several SKUs. PostgreSQL checks for deadlocks after `deadlock_timeout = 1s` and aborts one of the transactions involved.",
+        "query": "psycopg2.errors.DeadlockDetected 40P01 OrderService inventory_reservations",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-PG-01::header::Common-Error-Signatures::1",
+        "doc_id": "RUNBOOK-PG-01",
+        "section_anchor": "Common-Error-Signatures",
+        "text": "## Common Error Signatures  \n### Connection Slots Exhausted  \n```text\npsycopg2.OperationalError: connection to server at \"orders-db.checkout.svc\" (10.2.4.11), port 5432 failed:\nFATAL:  remaining connection slots are reserved for non-replication superuser connections\nSQLSTATE 53300\nat OrderService.db.connect()\n```  \n- **Error code:** `53300` (`too_many_connections`)\n- **Exception class:** `psycopg2.OperationalError`\n- **Typical symptom:** `POST /orders` starts failing or hanging during traffic peaks, while CPU on `OrdersDB` stays normal.",
+        "query": "psycopg2.errors.DeadlockDetected 40P01 OrderService inventory_reservations",
+        "iteration": 1
+      },
+      {
+        "chunk_id": "RUNBOOK-PG-02::header::Playbook-Remediation::3",
+        "doc_id": "RUNBOOK-PG-02",
+        "section_anchor": "Playbook-Remediation",
+        "text": "## Playbook Remediation  \n### Enforce a Consistent Lock Order  \n1. Sort SKUs before locking them, so every transaction locks rows in the same order:  \n```sql\nSELECT id FROM inventory_reservations\nWHERE sku = ANY(%(skus)s)\nORDER BY sku\nFOR UPDATE;\n```  \n2. Run the updates only after all rows are locked in this order.  \n### Retry Deadlocked Transactions  \n1. Retry the whole transaction on `40P01` up to 3 times with jittered backoff (for example 50-200 ms).\n2. Verify: the `deadlocks` counter in `pg_stat_database` stops increasing during the next sale, and order error rates return to baseline.",
+        "query": "RUNBOOK-PG-02 remediation order_by inventory_reservations sort",
+        "iteration": 2
+      }
+    ],
+    "searches": [
+      {
+        "query": "psycopg2.errors.DeadlockDetected 40P01 OrderService inventory_reservations",
+        "iteration": 1,
+        "refs": [
+          "RUNBOOK-PG-02#Common-Error-Signatures",
+          "RUNBOOK-PG-02#Service-Overview",
+          "RUNBOOK-PG-01#Common-Error-Signatures"
+        ]
+      },
+      {
+        "query": "RUNBOOK-PG-02 remediation order_by inventory_reservations sort",
+        "iteration": 2,
+        "refs": [
+          "RUNBOOK-PG-02#Playbook-Remediation"
+        ]
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "40P01",
+          "service": "OrderService"
+        },
+        "output": {
+          "status": "found",
+          "category": "Database Concurrency",
+          "severity": "SEV-3",
+          "owner": "Checkout-DB-Team",
+          "configured_limits": {
+            "deadlock_timeout_ms": 1000
+          }
+        },
+        "is_error": false,
+        "iteration": 1
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {
+          "command": "python manage.py runscript update_reservation_query_ordering"
+        },
+        "output": {
+          "allowed": false,
+          "reason": "Denied: command does not start with any allowlisted prefix (default deny).",
+          "matched_rule": null
+        },
+        "is_error": false,
+        "iteration": 2
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "DIAGNOSED"
+  }
+}

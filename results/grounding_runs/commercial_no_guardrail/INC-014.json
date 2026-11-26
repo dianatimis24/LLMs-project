@@ -1,0 +1,84 @@
+{
+  "case_id": "INC-014",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "Tool invocations failed validation during evidence gathering, leaving insufficient verified tool outputs or runbook chunks to construct a diagnosed root cause.",
+    "remediation_steps": [
+      "Check service logs manually for database and cache connectivity.",
+      "Verify database query performance and indexes."
+    ]
+  },
+  "trace": {
+    "session_id": "a7d706bcdf46",
+    "user_input": "2026-11-14T12:00:00.418Z ERROR [CatalogService] [http-nio-8080-exec-41] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:00:00.421Z ERROR [CatalogService] [http-nio-8080-exec-17] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:00:00.425Z ERROR [CatalogService] [http-nio-8080-exec-88] cache error REDIS_TIMEOUT key=catalog:category:phones:page:1, falling back to database\n2026-11-14T12:00:30.902Z ERROR [CatalogService] [http-nio-8080-exec-17] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014\n    at CatalogService.search.products_by_filter()\n2026-11-14T12:05:00.377Z ERROR [CatalogService] [http-nio-8080-exec-03] cache error REDIS_TIMEOUT key=catalog:category:electronics:page:1, falling back to database\n2026-11-14T12:05:30.611Z ERROR [CatalogService] [http-nio-8080-exec-56] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:04:09.839318+00:00",
+    "finished_at": "2026-11-26T18:04:22.400885+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [],
+    "searches": [],
+    "tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T12:00:30.902Z ERROR [CatalogService] [http-nio-8080-exec-17] psycopg2.errors.QueryCanceled: canceling statement due to statement timeout\nSQLSTATE 57014\n    at CatalogService.search.products_by_filter()"
+        },
+        "output": {
+          "exception_class": "psycopg2.errors.QueryCanceled",
+          "service": "CatalogService",
+          "failing_file": "CatalogService.search",
+          "method": "products_by_filter",
+          "error_code": "57014"
+        },
+        "is_error": false,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {},
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nservice\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {},
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nservice\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "error_code": "REDIS_TIMEOUT",
+          "service": "CatalogService"
+        },
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={'error_code': 'REDIS_TIM...vice': 'CatalogService'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nerror_code\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='REDIS_TIMEOUT', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/unexpected_keyword_argument",
+        "is_error": true,
+        "iteration": 2
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "error_code": "57014",
+          "service": "CatalogService"
+        },
+        "output": "2 validation errors for call[_mcp_lookup_error_code]\ncode\n  Missing required argument [type=missing_argument, input_value={'error_code': '57014', '...vice': 'CatalogService'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument\nerror_code\n  Unexpected keyword argument [type=unexpected_keyword_argument, input_value='57014', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/unexpected_keyword_argument",
+        "is_error": true,
+        "iteration": 2
+      },
+      {
+        "tool_name": "validate_remediation_command",
+        "arguments": {},
+        "output": "1 validation error for call[_mcp_validate_remediation_command]\ncommand\n  Missing required argument [type=missing_argument, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing_argument",
+        "is_error": true,
+        "iteration": 2
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

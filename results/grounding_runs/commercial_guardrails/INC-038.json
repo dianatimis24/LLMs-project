@@ -1,0 +1,42 @@
+{
+  "case_id": "INC-038",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "No runbook citations or successful tool outputs are available to confirm the root cause.",
+    "remediation_steps": [
+      "Check upstream SSL configuration and ensure TLS versions match between the API gateway and upstream services."
+    ]
+  },
+  "trace": {
+    "session_id": "68c3ade049fc",
+    "user_input": "2026-11-15T10:12:44.690Z [error] 29#29: *601177 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.9, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.31:8443/login\"\n10.0.4.9 - - [15/Nov/2026:10:12:44 +0000] \"POST /v1/login HTTP/1.1\" 502 157 \"-\" \"okhttp/4.12.0\"\n2026-11-15T10:12:45.011Z [warn] 29#29: *601190 upstream server temporarily disabled while SSL handshaking to upstream, client: 10.0.4.12, server: api.internal\n2026-11-15T10:12:45.302Z [error] 29#29: *601203 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.12, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.32:8443/login\"",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:14:44.917808+00:00",
+    "finished_at": "2026-11-26T18:15:00.887672+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [],
+    "searches": [],
+    "tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-15T10:12:44.690Z [error] 29#29: *601177 SSL_do_handshake() failed (SSL: error:0A00010B:SSL routines::wrong version number) while SSL handshaking to upstream, client: 10.0.4.9, server: api.internal, request: \"POST /v1/login HTTP/1.1\", upstream: \"https://10.2.7.31:8443/login\""
+        },
+        "output": {
+          "exception_class": null,
+          "service": "APIGateway",
+          "failing_file": null,
+          "method": null,
+          "error_code": null
+        },
+        "is_error": false,
+        "iteration": 1
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

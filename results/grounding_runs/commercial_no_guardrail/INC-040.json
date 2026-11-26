@@ -1,0 +1,47 @@
+{
+  "case_id": "INC-040",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "No runbooks or tools matched the query or symptom description; evidence is entirely missing.",
+    "remediation_steps": [
+      "Check API gateway rate limiting configuration and mobile app sync frequency manually."
+    ]
+  },
+  "trace": {
+    "session_id": "9af7b2289fcd",
+    "user_input": "Our mobile app gets HTTP 429 Too Many Requests from the API gateway when it syncs the product catalog on startup. What should we change so the sync stops being throttled?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:08:00.168499+00:00",
+    "finished_at": "2026-11-26T18:08:09.735285+00:00",
+    "llm_calls": 2,
+    "retrieved_chunks": [],
+    "searches": [
+      {
+        "query": "API gateway 429 Too Many Requests product catalog sync",
+        "iteration": 1,
+        "refs": []
+      },
+      {
+        "query": "catalog-service rate limit 429 gateway",
+        "iteration": 1,
+        "refs": []
+      },
+      {
+        "query": "mobile app product catalog sync throttled",
+        "iteration": 1,
+        "refs": []
+      },
+      {
+        "query": "API gateway throttle catalog sync",
+        "iteration": 1,
+        "refs": []
+      }
+    ],
+    "tool_calls": [],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

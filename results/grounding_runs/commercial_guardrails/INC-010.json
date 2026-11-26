@@ -1,0 +1,74 @@
+{
+  "case_id": "INC-010",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "No evidence or runbook chunks were found for this error code and service combination.",
+    "remediation_steps": [
+      "Manually inspect GraphAnalyticsService logs and memory usage.",
+      "Check Neo4j memory configuration and query limits."
+    ]
+  },
+  "trace": {
+    "session_id": "0725ec99f512",
+    "user_input": "2026-11-14T07:50:19.220Z ERROR [GraphAnalyticsService] neo4j.exceptions.TransientError: {code: Neo.TransientError.Transaction.LockClientStopped} Lock clientforsession-8821 stopped due to Cypher graph traversal memory limit.",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:11:10.599310+00:00",
+    "finished_at": "2026-11-26T18:11:39.918961+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [],
+    "searches": [
+      {
+        "query": "GraphAnalyticsService Neo.TransientError.Transaction.LockClientStopped",
+        "iteration": 1,
+        "refs": []
+      }
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "parse_stack_trace",
+        "arguments": {
+          "raw_log": "2026-11-14T07:50:19.220Z ERROR [GraphAnalyticsService] neo4j.exceptions.TransientError: {code: Neo.TransientError.Transaction.LockClientStopped} Lock clientforsession-8821 stopped due to Cypher graph traversal memory limit."
+        },
+        "output": {
+          "exception_class": "neo4j.exceptions.TransientError",
+          "service": "GraphAnalyticsService",
+          "failing_file": null,
+          "method": null,
+          "error_code": "Neo.TransientError.Transaction.LockClientStopped"
+        },
+        "is_error": false,
+        "iteration": 1
+      },
+      {
+        "tool_name": "lookup_error_code",
+        "arguments": {
+          "code": "Neo.TransientError.Transaction.LockClientStopped",
+          "service": "GraphAnalyticsService"
+        },
+        "output": {
+          "status": "unknown_code",
+          "category": null,
+          "severity": null,
+          "owner": null,
+          "configured_limits": {}
+        },
+        "is_error": false,
+        "iteration": 1
+      },
+      {
+        "tool_name": "check_service_dependencies",
+        "arguments": {
+          "service_name": "GraphAnalyticsService"
+        },
+        "output": [],
+        "is_error": false,
+        "iteration": 1
+      }
+    ],
+    "blocked_drafts": [],
+    "termination": "final_answer",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

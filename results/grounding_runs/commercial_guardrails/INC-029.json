@@ -1,0 +1,63 @@
+{
+  "case_id": "INC-029",
+  "output": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "proposed_root_cause": [],
+    "confidence_note": "INSUFFICIENT_EVIDENCE: still gathering evidence at iteration 3; no final answer. Evidence gathered: 3 retrieved chunk(s), 0 tool call(s), 3/3 iterations used.",
+    "remediation_steps": [
+      "Confirm the failing service and the exact error code in the raw log and in that service's own logs.",
+      "Check recent deploys, configuration changes and scale events for the affected service.",
+      "Escalate to the team that owns the affected service: no runbook or registry entry covers this failure."
+    ]
+  },
+  "trace": {
+    "session_id": "56e18271a330",
+    "user_input": "image-service pods on worker-node-3 were evicted and the node now shows DiskPressure. What is the fastest way to get the node healthy again without touching the other services?",
+    "model": "gemini-3.5-flash-lite",
+    "max_iterations": 3,
+    "started_at": "2026-11-26T18:13:21.747898+00:00",
+    "finished_at": "2026-11-26T18:13:38.645165+00:00",
+    "llm_calls": 3,
+    "retrieved_chunks": [
+      {
+        "chunk_id": "RUNBOOK-INFRA-03::header::Root-Cause-Analysis::2",
+        "doc_id": "RUNBOOK-INFRA-03",
+        "section_anchor": "Root-Cause-Analysis",
+        "text": "## Root Cause Analysis  \n### Temporary Files Not Cleaned Up  \n- **Mechanism:** ImageService deletes temporary files only after a successful resize. When a resize fails (corrupt or very large uploads), the temporary file stays in `/tmp`. Over days, failed jobs fill the node disk until the kubelet starts evicting pods.\n- **How to confirm:** The eviction message names `image-service` as the largest consumer, and the node shows disk pressure:  \n```bash\nkubectl get pods -n media --field-selector=status.phase=Failed\nkubectl describe node worker-node-3\n```  \n### No Ephemeral Storage Limits  \n- **Mechanism:** Without `ephemeral-storage` limits, one pod can consume the whole node disk, and the kubelet evicts pods across the node instead of only the one at fault.",
+        "query": "DiskPressure image-service eviction worker-node-3",
+        "iteration": 2
+      },
+      {
+        "chunk_id": "RUNBOOK-INFRA-03::header::Service-Overview::0",
+        "doc_id": "RUNBOOK-INFRA-03",
+        "section_anchor": "Service-Overview",
+        "text": "# Pod Eviction Due to Node Disk Pressure  \n## Service Overview  \nImageService, owned by Media-Team, resizes product images uploaded by sellers. It writes temporary files to `/tmp`, which is backed by the node's ephemeral storage. The kubelet evicts pods when free space on the node filesystem drops below 10% (`evictionHard: nodefs.available<10%`). ImageService pods do not set `ephemeral-storage` requests or limits.",
+        "query": "DiskPressure image-service eviction worker-node-3",
+        "iteration": 2
+      },
+      {
+        "chunk_id": "RUNBOOK-INFRA-03::header::Common-Error-Signatures::1",
+        "doc_id": "RUNBOOK-INFRA-03",
+        "section_anchor": "Common-Error-Signatures",
+        "text": "## Common Error Signatures  \n### Pod Evicted for Ephemeral Storage  \n```text\n$ kubectl describe pod image-service-5f7b8d9c4-p8w2m -n media\nStatus:   Failed\nReason:   Evicted\nMessage:  The node was low on resource: ephemeral-storage. Threshold quantity: 10%, available: 7%.\nContainer image-service was using 18Gi, request is 0, has larger consumption of ephemeral-storage.\n```  \n- **Error code:** `Evicted`\n- **Typical symptom:** Pods on the same node are evicted, including unrelated services. The node reports the condition `DiskPressure=True` and gets a `node.kubernetes.io/disk-pressure` taint, so no new pods are scheduled on it.",
+        "query": "DiskPressure image-service eviction worker-node-3",
+        "iteration": 2
+      }
+    ],
+    "searches": [
+      {
+        "query": "DiskPressure image-service eviction worker-node-3",
+        "iteration": 2,
+        "refs": [
+          "RUNBOOK-INFRA-03#Root-Cause-Analysis",
+          "RUNBOOK-INFRA-03#Service-Overview",
+          "RUNBOOK-INFRA-03#Common-Error-Signatures"
+        ]
+      }
+    ],
+    "tool_calls": [],
+    "blocked_drafts": [],
+    "termination": "iteration_cap",
+    "final_status": "INSUFFICIENT_EVIDENCE"
+  }
+}

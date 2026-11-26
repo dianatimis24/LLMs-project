@@ -5,7 +5,7 @@
 - Golden dataset: `data/golden_dataset.json`, 40 cases (32 in-scope, 8 out-of-scope)
 - Held-out split: 16 cases (12 in-scope, 4 out-of-scope). Adaptation split: 24 cases (20 in-scope, 4 out-of-scope)
 - top_k = 3, min_dense_similarity = 0.74, min_bm25_score = 3.0, lexical_gate = code
-- Run timestamp: 2026-11-22T22:02:25+00:00
+- Run timestamp: 2026-11-19T10:03:30+00:00 (the run stored in the raw logs below)
 - Raw logs: `results/exp1_retrieval.json`, `results/exp1_retrieval.csv`
 
 ## Results
@@ -14,21 +14,21 @@
 
 | Config | Recall@1 | Recall@3 | MRR@3 | Section-Anchor Hit@3 | Avg latency (ms) |
 |---|---|---|---|---|---|
-| Naive (500 chars) + Dense-Only | 0.969 | 1.000 | 0.984 | n/a (0.000) | 145.5 |
-| Header-Aware + Dense-Only | 0.969 | 1.000 | 0.984 | 0.625 | 92.4 |
-| Naive (500 chars) + Hybrid | 1.000 | 1.000 | 1.000 | n/a (0.000) | 83.0 |
-| Header-Aware + Hybrid | 0.969 | 1.000 | 0.984 | 0.563 | 82.1 |
+| Naive (500 chars) + Dense-Only | 0.969 | 1.000 | 0.984 | n/a (0.000) | 42.4 |
+| Header-Aware + Dense-Only | 0.969 | 1.000 | 0.984 | 0.625 | 33.2 |
+| Naive (500 chars) + Hybrid | 1.000 | 1.000 | 1.000 | n/a (0.000) | 35.3 |
+| Header-Aware + Hybrid | 0.969 | 1.000 | 0.984 | 0.563 | 34.7 |
 
 ### Held-out split (n = 12 in-scope)
 
 | Config | Recall@1 | Recall@3 | MRR@3 | Section-Anchor Hit@3 |
 |---|---|---|---|---|
 | Naive (500 chars) + Dense-Only | 1.000 | 1.000 | 1.000 | n/a (0.000) |
-| Header-Aware + Dense-Only | 0.917 | 1.000 | 0.958 | 0.500 |
+| Header-Aware + Dense-Only | 0.917 | 1.000 | 0.958 | 0.417 |
 | Naive (500 chars) + Hybrid | 1.000 | 1.000 | 1.000 | n/a (0.000) |
 | Header-Aware + Hybrid | 0.917 | 1.000 | 0.958 | 0.417 |
 
-False-positive rate and empty-result rate are 0.000 for all configurations.
+False-positive rate and empty-result rate are 0.000 for all configurations. Latency is machine-dependent (CPU embedding) and is reported from the stored run.
 
 ### Notes on interpreting the results
 
