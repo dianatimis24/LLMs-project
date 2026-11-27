@@ -22,13 +22,13 @@
         "snippet_fidelity": 1.0,
         "attribution_precision": 0.3444,
         "attribution_recall": 0.1875,
-        "claim_support_rate": 1.0,
+        "claim_support_rate": 0.75,
         "abstention_accuracy": 1.0,
         "input_blocked": 0,
         "false_abstention_rate": 0.625,
-        "guardrail_catch_rate": 1.0,
+        "guardrail_catch_rate": 0.6667,
         "guardrail_caught": 2,
-        "guardrail_escaped": 0
+        "guardrail_escaped": 1
       },
       "cases": [
         {
@@ -59,7 +59,7 @@
           "cites_expected_doc": true,
           "key_term_recall": 0.714,
           "judge_score": 0.5,
-          "judge_reason": "The proposed root cause correctly identifies the database connection exhaustion and error code, but misses the specific mechanism of leaked 'idle in transaction' connections caused by unrolled-back exceptions from downstream timeouts.",
+          "judge_reason": "The proposed cause correctly identifies the symptom of connection exhaustion and database limit, but misses the specific mechanism of leaked 'idle in transaction' sessions caused by unhandled exceptions and missing rollbacks in async jobs.",
           "cause_correct": 0.5,
           "caught_by_guardrail": 0,
           "caught_by_validator": 0,
@@ -85,7 +85,7 @@
           "snippets_exact": 2,
           "claims_total": 1,
           "claims_citations_valid": 1,
-          "claims_supported": 1,
+          "claims_supported": 0,
           "cited_sources": [
             "RUNBOOK-PG-02#Common-Error-Signatures",
             "RUNBOOK-PG-02#Service-Overview",
@@ -101,11 +101,11 @@
           "cites_expected_doc": true,
           "key_term_recall": 0.667,
           "judge_score": 1.0,
-          "judge_reason": "The proposed root cause accurately identifies the inconsistent locking order of rows in the inventory_reservations table during multi-item orders as the mechanism causing the deadlock.",
+          "judge_reason": "The proposed root cause accurately identifies both the inconsistent row locking order during concurrent multi-item orders and the resulting PostgreSQL deadlock detection as the core failure mechanism.",
           "cause_correct": 1.0,
           "caught_by_guardrail": 0,
           "caught_by_validator": 1,
-          "escaped_unsupported_claims": 0,
+          "escaped_unsupported_claims": 1,
           "escaped_unsafe_commands": [],
           "blocked_drafts": 0,
           "evidence_row": {
@@ -113,7 +113,7 @@
             "Proposed Cause": "During flash sales, OrderService fails with HTTP 500 and psycopg2.errors.DeadlockDetected (SQLSTATE 40P01) because multi-item orders lock rows in the inventory…",
             "RAG Evidence": "RUNBOOK-PG-02#Common-Error-Signatures, RUNBOOK-PG-02#Service-Overview",
             "Tool Evidence": "lookup_error_code → Found error code 40P01 under Database Concurrency with severity SEV-3, owned by Checkout-DB-Team, and configured with a deadlock_timeout_ms…",
-            "Supported?": "✓ (1/1)",
+            "Supported?": "✗ (0/1)",
             "Correct?": "✓"
           }
         },
@@ -220,7 +220,7 @@
           "cites_expected_doc": true,
           "key_term_recall": 0.0,
           "judge_score": 1.0,
-          "judge_reason": "The proposed root cause accurately identifies that the liveness probe kills the container prematurely during catalog loading before the HTTP server starts listening.",
+          "judge_reason": "The proposed root cause accurately identifies the failure mechanism where the startup catalog loading takes longer than the liveness probe timeout, causing the kubelet to kill the container.",
           "cause_correct": 0.0,
           "caught_by_guardrail": 0,
           "caught_by_validator": 0,
@@ -428,13 +428,13 @@
         "snippet_fidelity": 1.0,
         "attribution_precision": 0.3833,
         "attribution_recall": 0.1667,
-        "claim_support_rate": 1.0,
+        "claim_support_rate": 0.8,
         "abstention_accuracy": 1.0,
         "input_blocked": 0,
         "false_abstention_rate": 0.6667,
-        "guardrail_catch_rate": 1.0,
+        "guardrail_catch_rate": 0.75,
         "guardrail_caught": 3,
-        "guardrail_escaped": 0
+        "guardrail_escaped": 1
       },
       "cases": [
         {
@@ -465,7 +465,7 @@
           "cites_expected_doc": true,
           "key_term_recall": 0.714,
           "judge_score": 0.5,
-          "judge_reason": "The proposed root cause correctly identifies the database connection exhaustion and error code, but misses the specific mechanism of leaked 'idle in transaction' connections caused by unrolled-back exceptions from downstream timeouts.",
+          "judge_reason": "The proposed cause correctly identifies the symptom of connection exhaustion and database limit, but misses the specific mechanism of leaked 'idle in transaction' sessions caused by unhandled exceptions and missing rollbacks in async jobs.",
           "cause_correct": 0.5,
           "caught_by_guardrail": 0,
           "caught_by_validator": 0,
@@ -491,7 +491,7 @@
           "snippets_exact": 2,
           "claims_total": 1,
           "claims_citations_valid": 1,
-          "claims_supported": 1,
+          "claims_supported": 0,
           "cited_sources": [
             "RUNBOOK-PG-02#Common-Error-Signatures",
             "RUNBOOK-PG-02#Service-Overview",
@@ -507,11 +507,11 @@
           "cites_expected_doc": true,
           "key_term_recall": 0.667,
           "judge_score": 1.0,
-          "judge_reason": "The proposed root cause accurately identifies the inconsistent locking order of rows in the inventory_reservations table during multi-item orders as the mechanism causing the deadlock.",
+          "judge_reason": "The proposed root cause accurately identifies both the inconsistent row locking order during concurrent multi-item orders and the resulting PostgreSQL deadlock detection as the core failure mechanism.",
           "cause_correct": 1.0,
           "caught_by_guardrail": 0,
           "caught_by_validator": 1,
-          "escaped_unsupported_claims": 0,
+          "escaped_unsupported_claims": 1,
           "escaped_unsafe_commands": [],
           "blocked_drafts": 0,
           "evidence_row": {
@@ -519,7 +519,7 @@
             "Proposed Cause": "During flash sales, OrderService fails with HTTP 500 and psycopg2.errors.DeadlockDetected (SQLSTATE 40P01) because multi-item orders lock rows in the inventory…",
             "RAG Evidence": "RUNBOOK-PG-02#Common-Error-Signatures, RUNBOOK-PG-02#Service-Overview",
             "Tool Evidence": "lookup_error_code → Found error code 40P01 under Database Concurrency with severity SEV-3, owned by Checkout-DB-Team, and configured with a deadlock_timeout_ms…",
-            "Supported?": "✓ (1/1)",
+            "Supported?": "✗ (0/1)",
             "Correct?": "✓"
           }
         },
@@ -796,7 +796,7 @@
           "cites_expected_doc": true,
           "key_term_recall": 0.0,
           "judge_score": 1.0,
-          "judge_reason": "The proposed root cause accurately identifies that the liveness probe kills the container prematurely during catalog loading before the HTTP server starts listening.",
+          "judge_reason": "The proposed root cause accurately identifies the failure mechanism where the startup catalog loading takes longer than the liveness probe timeout, causing the kubelet to kill the container.",
           "cause_correct": 0.0,
           "caught_by_guardrail": 0,
           "caught_by_validator": 0,
@@ -951,7 +951,7 @@
           "cites_expected_doc": true,
           "key_term_recall": 1.0,
           "judge_score": 1.0,
-          "judge_reason": "The proposed root cause accurately identifies that the previous signing key was removed prematurely from the JWKS during rotation, causing valid tokens signed with the old key to fail verification at the gateway.",
+          "judge_reason": "The proposed root cause identifies the exact same failure mechanism involving premature removal of the signing key from JWKS leading to verification failures and 401 errors for valid existing tokens.",
           "cause_correct": 1.0,
           "caught_by_guardrail": 0,
           "caught_by_validator": 0,
