@@ -14,12 +14,12 @@
 | Snippet Fidelity | 0.889 | 0.933 |
 | Attribution Precision | 0.300 | 0.315 |
 | Attribution Recall | 0.250 | 0.292 |
-| Claim Support Rate | 0.571 | 0.583 |
+| Claim Support Rate | 0.571 | 0.667 |
 | Abstention Accuracy | 1.000 | 1.000 |
 | False Abstention Rate (in-scope) | 0.375 | 0.250 |
-| Guardrail Catch Rate | 0.400 | 0.286 |
+| Guardrail Catch Rate | 0.400 | 0.333 |
 
-Guardrail: caught 2, escaped 5; inputs blocked by the input guardrail: 0 (held_out).
+Guardrail: caught 2, escaped 4; inputs blocked by the input guardrail: 0 (held_out).
 
 ## Evidence table: fixed10
 
@@ -46,7 +46,7 @@ Guardrail: caught 2, escaped 5; inputs blocked by the input guardrail: 0 (held_o
 | INC-010 | INSUFFICIENT_EVIDENCE | — | — | n/a | ✓ (abstained) |
 | INC-012 | INSUFFICIENT_EVIDENCE | — | — | n/a | ✗ |
 | INC-014 | INSUFFICIENT_EVIDENCE | — | — | n/a | ✗ |
-| INC-016 | NotificationService consumers are exceeding max.poll.interval.ms due to slow external email provider latency while processing 500 records per poll, triggering … | RUNBOOK-KAFKA-01#Common-Error-Signatures | check_service_dependencies → Retrieved service dependencies and topology successfully. | ✗ (0/1) | ✓ |
+| INC-016 | NotificationService consumers are exceeding max.poll.interval.ms due to slow external email provider latency while processing 500 records per poll, triggering … | RUNBOOK-KAFKA-01#Common-Error-Signatures | check_service_dependencies → Retrieved service dependencies and topology successfully. | ✓ (1/1) | ✓ |
 | INC-020 | INSUFFICIENT_EVIDENCE | — | — | n/a | ✓ (abstained) |
 | INC-027 | INSUFFICIENT_EVIDENCE | — | — | n/a | ✓ (abstained) |
 | INC-028 | The new release of InventoryService loads the full SKU catalog into memory at startup, which takes about 45 seconds, while the liveness probe kills the contain… | RUNBOOK-INFRA-02#Root-Cause-Analysis | validate_remediation_command → Allowed: matches allowlisted prefix 'kubectl describe'. | ✓ (1/1) | ✓ |
